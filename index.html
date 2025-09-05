@@ -226,6 +226,21 @@
   </div>
 
   <script>
+    <script>
+  // API config for the app
+  const SERVER_CONFIG = {
+    enabled: true,
+    uploadUrl: 'https://vavlo-api.onrender.com/api/upload',
+    projectUrl: 'https://vavlo-api.onrender.com/api/project',
+    imageFieldName: 'image',
+    useCredentials: false,
+    extraHeaders: {}
+  };
+
+  // Make sure Dropbox is off if it exists in your file
+  try { if (typeof DROPBOX_CONFIG !== 'undefined') DROPBOX_CONFIG.enabled = false; } catch (e) {}
+</script>
+
     // ===== State =====
     let currentProject = null;
     let currentVersion = 1;
