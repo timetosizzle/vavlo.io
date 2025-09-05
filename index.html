@@ -234,11 +234,14 @@
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Online only via your API
+    // Online only via your API. Extra switches added to help with server setups.
     const SERVER_CONFIG = {
       enabled: true,
       uploadUrl: '/api/upload',
-      projectUrl: '/api/project'
+      projectUrl: '/api/project',
+      imageFieldName: 'image', // try 'file' on some backends
+      useCredentials: true,    // include cookies for auth or CSRF
+      extraHeaders: {}         // add custom headers like {'X-CSRF-Token': '...'}
     };
 
     // ===== Init =====
@@ -320,9 +323,13 @@
         if (isDragging) { isDragging = false; imageContainer.classList.remove('panning'); }
       });
 
-      // Ctrl/Meta + wheel zoom around cursor
+      // Ctrl or Meta + wheel zoom around cursor
       imageContainer.addEventListener('wheel', (e) => {
-        if (e.ctrlKey || e.metaKey) { e.preventDefault(); const factor = e.deltaY > 0 ? 1/1.1 : 1.1; zoomBy(factor, { x: e.clientX, y: e.clientY }); }
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const factor = e.deltaY > 0 ? 1/1.1 : 1.1;
+          zoomBy(factor, { x: e.clientX, y: e.clientY });
+        }
       }, { passive: false });
 
       // Tabs
@@ -356,7 +363,7 @@
       e.preventDefault();
     }
 
-    // ===== Upload / Versions =====
+    // ===== Upload and Versions =====
     function handleFileUpload(e) { const file = e.target.files[0]; if (file) createNewProject(file); }
     function handleNewVersionUpload(e) { const file = e.target.files[0]; if (file && currentProject) addNewVersion(file); }
     function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
@@ -678,13 +685,14 @@
 
     async function uploadToServer(file, projectId) {
       try {
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('projectId', projectId);
-        formData.append('projectName', file.name.replace(/\.[^/.]+$/, ''));
-
-        const res = await fetch(SERVER_CONFIG.uploadUrl, { method: 'POST', body: formData });
-        if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+        const formData = buildUploadFormData({ file, projectId, projectName: file.name.replace(/\.[^/.]+$/, '') });
+        const res = await fetch(SERVER_CONFIG.uploadUrl, {
+          method: 'POST',
+          body: formData,
+          credentials: SERVER_CONFIG.useCredentials ? 'include' : 'same-origin',
+          headers: { ...SERVER_CONFIG.extraHeaders }
+        });
+        if (!res.ok) throw await httpError(res);
         const result = await res.json();
 
         currentProject = {
@@ -704,38 +712,47 @@
         showDashboard();
         saveProject();
       } catch (err) {
-        console.error(err);
-        alert('Server upload failed. Please try again.');
+        console.error('Upload error:', err);
+        alert(renderFriendlyError('upload', err));
       }
     }
 
     async function uploadNewVersionToServer(file, newVersionId) {
       try {
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('projectId', currentProject.id);
-        formData.append('versionId', newVersionId);
-
-        const res = await fetch(`${SERVER_CONFIG.uploadUrl}/version`, { method: 'POST', body: formData });
-        if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+        const formData = buildUploadFormData({ file, projectId: currentProject.id, versionId: newVersionId });
+        const res = await fetch(`${SERVER_CONFIG.uploadUrl}/version`, {
+          method: 'POST',
+          body: formData,
+          credentials: SERVER_CONFIG.useCredentials ? 'include' : 'same-origin',
+          headers: { ...SERVER_CONFIG.extraHeaders }
+        });
+        if (!res.ok) throw await httpError(res);
         const result = await res.json();
 
         currentProject.versions.push({ id: newVersionId, url: result.imageUrl, uploadDate: new Date(result.uploadDate || Date.now()), filename: result.filename || file.name });
         currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId); saveProject();
       } catch (err) {
-        console.error(err);
-        alert('Server version upload failed. Please try again.');
+        console.error('Version upload error:', err);
+        alert(renderFriendlyError('version upload', err));
       }
     }
 
     async function saveProjectToServer(projectData) {
-      const res = await fetch(SERVER_CONFIG.projectUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectData) });
-      if (!res.ok) throw new Error(`Save failed: ${res.status} ${res.statusText}`);
+      const res = await fetch(SERVER_CONFIG.projectUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...SERVER_CONFIG.extraHeaders },
+        body: JSON.stringify(projectData),
+        credentials: SERVER_CONFIG.useCredentials ? 'include' : 'same-origin'
+      });
+      if (!res.ok) throw await httpError(res);
     }
 
     async function loadProjectFromServer(projectId) {
-      const res = await fetch(`${SERVER_CONFIG.projectUrl}/${projectId}`);
-      if (!res.ok) throw new Error(`Load failed: ${res.status} ${res.statusText}`);
+      const res = await fetch(`${SERVER_CONFIG.projectUrl}/${projectId}`, {
+        credentials: SERVER_CONFIG.useCredentials ? 'include' : 'same-origin',
+        headers: { ...SERVER_CONFIG.extraHeaders }
+      });
+      if (!res.ok) throw await httpError(res);
       const projectData = await res.json();
       currentProject = projectData.project;
       comments[projectId] = projectData.comments || {};
@@ -761,6 +778,40 @@
     function generateCommentId() { return 'comment_' + Math.random().toString(36).slice(2, 11); }
     function formatDate(d) { return new Date(d).toLocaleString(); }
     function escapeHtml(str) { return String(str).replace(/[&<>\"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[s])); }
+
+    // Build FormData that is compatible with varied backends
+    function buildUploadFormData({ file, projectId, projectName, versionId }) {
+      const fd = new FormData();
+      // Primary field name
+      fd.append(SERVER_CONFIG.imageFieldName || 'image', file, file.name);
+      // Common alternates for best compatibility
+      if ((SERVER_CONFIG.imageFieldName || 'image') !== 'file') fd.append('file', file, file.name);
+      if ((SERVER_CONFIG.imageFieldName || 'image') !== 'image') fd.append('image', file, file.name);
+      if (projectId) fd.append('projectId', projectId);
+      if (projectName) { fd.append('projectName', projectName); fd.append('name', projectName); }
+      if (versionId != null) fd.append('versionId', String(versionId));
+      return fd;
+    }
+
+    // Turn a non ok Response into an Error with details
+    async function httpError(res) {
+      let bodyText = '';
+      try { bodyText = await res.text(); } catch {}
+      const err = new Error(`HTTP ${res.status} ${res.statusText}${bodyText ? ' - ' + bodyText : ''}`);
+      err.status = res.status; err.statusText = res.statusText; err.body = bodyText; return err;
+    }
+
+    function renderFriendlyError(action, err) {
+      if (err && typeof err.status === 'number') {
+        if (err.status === 413) return `The ${action} failed because the file is too large for the server. Try a smaller image or increase the server upload limit.`;
+        if (err.status === 401 || err.status === 403) return `The ${action} failed due to auth or CSRF. Make sure you are logged in and the API allows this origin. ${err.message}`;
+        if (err.status === 404) return `The ${action} endpoint was not found. Check SERVER_CONFIG paths. ${err.message}`;
+        if (err.status === 415) return `The ${action} failed due to unsupported media type. The server may expect a different field name like 'file' or 'image'.`;
+        return `The ${action} failed with ${err.message}`;
+      }
+      // Network or CORS
+      return `Network error during ${action}. Possible CORS or connectivity issue. Open the Network tab for details.`;
+    }
   </script>
 </body>
 </html>
