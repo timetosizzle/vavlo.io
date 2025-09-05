@@ -148,7 +148,7 @@
         <div class="project-title" id="projectTitle">Untitled Project</div>
         <select class="version-selector" id="versionSelector"></select>
         <div class="zoom-controls" id="zoomControls">
-          <button class="zoom-btn" id="zoomOutBtn" title="Zoom out (–)">−</button>
+          <button class="zoom-btn" id="zoomOutBtn" title="Zoom out (-)">-</button>
           <button class="zoom-btn" id="zoomResetBtn" title="Reset (0)">100%</button>
           <button class="zoom-btn" id="zoomInBtn" title="Zoom in (+)">+</button>
         </div>
@@ -234,8 +234,7 @@
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Config: use your API gateway to Dropbox
-    const DROPBOX_CONFIG = { enabled: false };
+    // Online only via your API
     const SERVER_CONFIG = {
       enabled: true,
       uploadUrl: '/api/upload',
@@ -279,7 +278,7 @@
       // Image click for annotations
       imageWrapper.addEventListener('click', handleImageClick);
 
-      // Also attach pan start on both wrapper and container for reliability
+      // Pan start on wrapper and container
       imageContainer.addEventListener('mousedown', maybeStartPan);
       imageWrapper.addEventListener('mousedown', maybeStartPan);
 
@@ -298,7 +297,7 @@
         if (e.key === '0') { e.preventDefault(); fitWidthZoom(); }
       });
 
-      // Spacebar to pan - support both e.code and e.key
+      // Spacebar to pan
       document.addEventListener('keydown', (e) => {
         const ae = document.activeElement;
         const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
@@ -366,36 +365,12 @@
 
     function createNewProject(file) {
       const projectId = generateProjectId();
-      if (SERVER_CONFIG.enabled) {
-        uploadToServer(file, projectId);
-      } else if (DROPBOX_CONFIG.enabled) {
-        // optional: direct to Dropbox flow if you enable it later
-        createLocalProject(file, projectId);
-      } else {
-        createLocalProject(file, projectId);
-      }
-    }
-
-    function createLocalProject(file, projectId) {
-      currentProject = { id: projectId, name: file.name.replace(/\.[^/.]+$/, ''), versions: [ { id: 1, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name } ] };
-      currentVersion = 1; comments[projectId] = {}; saveProject(); showDashboard();
+      uploadToServer(file, projectId);
     }
 
     function addNewVersion(file) {
       const newVersionId = currentProject.versions.length + 1;
-      if (SERVER_CONFIG.enabled) {
-        uploadNewVersionToServer(file, newVersionId);
-      } else if (DROPBOX_CONFIG.enabled) {
-        // optional: Dropbox path if enabled later
-        addLocalVersion(file, newVersionId);
-      } else {
-        addLocalVersion(file, newVersionId);
-      }
-    }
-
-    function addLocalVersion(file, newVersionId) {
-      currentProject.versions.push({ id: newVersionId, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name });
-      currentVersion = newVersionId; saveProject(); updateVersionSelector(); loadVersion(newVersionId);
+      uploadNewVersionToServer(file, newVersionId);
     }
 
     // ===== UI render =====
@@ -404,9 +379,19 @@
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('projectTitle').textContent = currentProject.name;
       document.getElementById('shareUrl').value = `${window.location.origin}${window.location.pathname}?project=${currentProject.id}`;
+      syncUrlToProject();
       updateVersionSelector();
       loadVersion(currentVersion);
       renderComments();
+    }
+
+    function syncUrlToProject() {
+      const path = window.location.pathname;
+      const search = new URLSearchParams(window.location.search);
+      search.set('project', currentProject.id);
+      const newUrl = `${path}?${search.toString()}`;
+      history.replaceState({}, '', newUrl);
+      document.getElementById('shareUrl').value = `${location.origin}${newUrl}`;
     }
 
     function updateVersionSelector() {
@@ -434,7 +419,7 @@
       img.src = version.url;
     }
 
-    function handleVersionChange(e) { currentVersion = parseInt(e.target.value, 10); loadVersion(currentVersion); renderComments(); }
+    function handleVersionChange(e) { currentVersion = parseInt(e.target.value, 10); loadVersion(currentVersion); renderComments(); saveProject(); }
 
     // ===== Comments =====
     function handleImageClick(e) {
@@ -642,8 +627,8 @@
     function fitWidthZoom() {
       const container = document.getElementById('imageContainer');
       const wrap = document.getElementById('imageWrapper');
-      const baseWidth = wrap.offsetWidth || 1; // wrapper sized to natural width
-      const available = container.clientWidth - 24; // small padding buffer
+      const baseWidth = wrap.offsetWidth || 1;
+      const available = container.clientWidth - 24;
       const scale = available / baseWidth;
       setZoom(scale > 0 ? scale : 1);
     }
@@ -652,7 +637,6 @@
       const wrap = document.getElementById('imageWrapper');
       const container = document.getElementById('imageContainer');
       const prev = zoomLevel; zoomLevel = level;
-      // Keep the pointer position stable when zooming with wheel by adjusting scroll
       if (pivot) {
         const rect = wrap.getBoundingClientRect();
         const offX = pivot.x - rect.left + container.scrollLeft;
@@ -663,6 +647,7 @@
       }
       wrap.style.transform = `scale(${zoomLevel})`;
       document.getElementById('zoomResetBtn').textContent = `${Math.round(zoomLevel * 100)}%`;
+      saveProject();
     }
 
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
@@ -682,18 +667,13 @@
     // ===== Nav =====
     function goBack() { document.getElementById('dashboard').style.display = 'none'; document.getElementById('uploadPage').style.display = 'flex'; }
 
-    // ===== Storage and API =====
+    // ===== Server API only =====
     function saveProject() {
       if (!currentProject) return;
       const data = { project: currentProject, comments: comments[currentProject.id] || {} };
-      if (SERVER_CONFIG.enabled) {
-        saveProjectToServer(data).catch(err => {
-          console.warn('Server save failed. Saving locally as fallback.', err);
-          localStorage.setItem('project_' + currentProject.id, JSON.stringify(data));
-        });
-      } else {
-        localStorage.setItem('project_' + currentProject.id, JSON.stringify(data));
-      }
+      saveProjectToServer(data).catch(err => {
+        console.error('Server save failed', err);
+      });
     }
 
     async function uploadToServer(file, projectId) {
@@ -722,10 +702,10 @@
         currentVersion = 1;
         comments[projectId] = {};
         showDashboard();
+        saveProject();
       } catch (err) {
         console.error(err);
-        alert('Server upload failed. Falling back to local storage for now.');
-        createLocalProject(file, projectId);
+        alert('Server upload failed. Please try again.');
       }
     }
 
@@ -741,11 +721,10 @@
         const result = await res.json();
 
         currentProject.versions.push({ id: newVersionId, url: result.imageUrl, uploadDate: new Date(result.uploadDate || Date.now()), filename: result.filename || file.name });
-        currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId);
+        currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId); saveProject();
       } catch (err) {
         console.error(err);
-        alert('Server version upload failed. Falling back to local storage for this version.');
-        addLocalVersion(file, newVersionId);
+        alert('Server version upload failed. Please try again.');
       }
     }
 
@@ -763,23 +742,9 @@
       return true;
     }
 
-    function loadProjectFromLocal(projectId) {
-      const raw = localStorage.getItem('project_' + projectId);
-      if (!raw) return false;
-      const data = JSON.parse(raw);
-      currentProject = data.project;
-      comments[projectId] = data.comments || {};
-      currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); });
-      return true;
-    }
-
     async function loadProject(projectId) {
-      if (SERVER_CONFIG.enabled) {
-        try { await loadProjectFromServer(projectId); return true; }
-        catch (e) { console.warn('Server load failed. Trying local storage.', e); return loadProjectFromLocal(projectId); }
-      } else {
-        return loadProjectFromLocal(projectId);
-      }
+      try { await loadProjectFromServer(projectId); return true; }
+      catch (e) { console.error('Server load failed', e); return false; }
     }
 
     async function loadFromUrl() {
