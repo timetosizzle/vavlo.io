@@ -4,18 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Annotation Tool</title>
-
     <style>
+        /* Brand Color Variables */
+        :root {
+            --brand-background: #02042b;
+            --brand-text: #ffffff;
+            --brand-text-muted: rgba(255, 255, 255, 0.7);
+            --brand-text-subtle: rgba(255, 255, 255, 0.6);
+            --brand-accent: #ff037e;
+            --brand-accent-hover: #e6026f;
+            --brand-accent-light: rgba(255, 3, 126, 0.1);
+            --brand-accent-medium: rgba(255, 3, 126, 0.2);
+            --brand-accent-strong: rgba(255, 3, 126, 0.3);
+            --brand-surface: rgba(255, 255, 255, 0.05);
+            --brand-surface-hover: rgba(255, 255, 255, 0.08);
+            --brand-border: rgba(255, 255, 255, 0.1);
+            --brand-border-strong: rgba(255, 255, 255, 0.2);
+            --brand-border-dashed: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Reset */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        body {
+        /* Base Styles */
+        html, body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
+            background: var(--brand-background);
+            color: var(--brand-text);
+            height: 100%;
+        }
+
+        /* Button Styles */
+        .btn {
+            background: var(--brand-accent);
+            color: var(--brand-text);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: var(--brand-accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--brand-accent-strong);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-secondary {
+            background: var(--brand-surface-hover);
+            color: var(--brand-text);
+            border: 1px solid var(--brand-border-strong);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
         }
 
         /* Upload Page Styles */
@@ -25,69 +78,75 @@
             align-items: center;
             min-height: 100vh;
             padding: 20px;
+            background: var(--brand-background);
         }
 
         .upload-box {
-            background: white;
+            background: var(--brand-surface-hover);
+            border: 1px solid var(--brand-border);
             border-radius: 12px;
             padding: 60px 40px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             text-align: center;
             max-width: 500px;
             width: 100%;
         }
 
+        .logo-container {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .logo {
+            max-width: 200px;
+            height: auto;
+            border-radius: 8px;
+        }
+
         .upload-area {
-            border: 3px dashed #ddd;
+            border: 3px dashed var(--brand-border-dashed);
             border-radius: 8px;
             padding: 40px 20px;
             margin: 20px 0;
             transition: all 0.3s ease;
             cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .upload-area:hover, .upload-area.dragover {
-            border-color: #007bff;
-            background: #f8f9ff;
+            border-color: var(--brand-accent);
+            background: var(--brand-accent-light);
         }
 
         .upload-icon {
             font-size: 48px;
-            color: #ccc;
+            color: var(--brand-text-subtle);
             margin-bottom: 16px;
         }
 
         .upload-text {
             font-size: 18px;
-            color: #666;
+            color: var(--brand-text);
             margin-bottom: 8px;
+            font-weight: 500;
         }
 
         .upload-subtext {
             font-size: 14px;
-            color: #999;
+            color: var(--brand-text-muted);
         }
 
-        #fileInput {
+        .hidden {
             display: none;
         }
 
-        .btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s ease;
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--brand-text-subtle);
         }
 
-        .btn:hover {
-            background: #0056b3;
-        }
-
-        /* Annotation Dashboard Styles */
+        /* Dashboard Styles */
         .dashboard {
             display: none;
             height: 100vh;
@@ -95,8 +154,8 @@
         }
 
         .header {
-            background: white;
-            border-bottom: 1px solid #e0e0e0;
+            background: var(--brand-surface);
+            border-bottom: 1px solid var(--brand-border);
             padding: 16px 24px;
             display: flex;
             justify-content: between;
@@ -118,22 +177,26 @@
             cursor: pointer;
             padding: 8px;
             border-radius: 4px;
+            color: var(--brand-text);
         }
 
         .back-btn:hover {
-            background: #f0f0f0;
+            background: var(--brand-surface-hover);
         }
 
         .project-title {
             font-size: 18px;
             font-weight: 600;
+            color: var(--brand-text);
         }
 
         .version-selector {
             padding: 8px 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--brand-border-strong);
             border-radius: 6px;
             font-size: 14px;
+            background: var(--brand-surface);
+            color: var(--brand-text);
         }
 
         .header-right {
@@ -147,20 +210,26 @@
             align-items: center;
             gap: 8px;
             padding: 8px 12px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--brand-surface);
+            border: 1px solid var(--brand-border-strong);
             border-radius: 6px;
             font-size: 14px;
+            color: var(--brand-text);
         }
 
         .copy-btn {
-            background: #28a745;
-            color: white;
+            background: var(--brand-accent);
+            color: var(--brand-text);
             border: none;
             padding: 4px 8px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--brand-accent-hover);
         }
 
         .main-content {
@@ -172,7 +241,7 @@
             flex: 1;
             position: relative;
             overflow: hidden;
-            background: #f8f9fa;
+            background: rgba(0, 0, 0, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -197,12 +266,13 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: white;
+            background: var(--brand-surface-hover);
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            border: 1px solid var(--brand-border);
         }
 
         .zoom-btn {
@@ -211,7 +281,9 @@
             padding: 12px;
             cursor: pointer;
             font-size: 16px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--brand-border);
+            color: var(--brand-text);
+            transition: all 0.3s ease;
         }
 
         .zoom-btn:last-child {
@@ -219,53 +291,54 @@
         }
 
         .zoom-btn:hover {
-            background: #f0f0f0;
+            background: var(--brand-accent-light);
         }
 
         .annotation-marker {
             position: absolute;
-            width: 24px;
-            height: 24px;
-            background: #007bff;
-            border: 2px solid white;
+            width: 12px;
+            height: 12px;
+            background: var(--brand-accent);
+            border: 2px solid var(--brand-text);
             border-radius: 50%;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             transform: translate(-50%, -50%);
             z-index: 10;
+            box-shadow: 0 2px 8px var(--brand-accent-strong);
+            transition: all 0.2s ease;
         }
 
         .annotation-marker:hover {
-            transform: translate(-50%, -50%) scale(1.1);
+            transform: translate(-50%, -50%) scale(1.2);
+            background: var(--brand-accent-hover);
+            box-shadow: 0 4px 12px rgba(255, 3, 126, 0.6);
         }
 
         .annotation-marker.active {
-            background: #dc3545;
+            background: var(--brand-text);
+            border-color: var(--brand-accent);
+            transform: translate(-50%, -50%) scale(1.3);
+            box-shadow: 0 6px 16px rgba(255, 3, 126, 0.8);
         }
 
         .sidebar {
             width: 400px;
-            background: white;
-            border-left: 1px solid #e0e0e0;
+            background: var(--brand-surface);
+            border-left: 1px solid var(--brand-border);
             display: flex;
             flex-direction: column;
         }
 
         .sidebar-header {
             padding: 20px 24px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--brand-border);
         }
 
         .sidebar-title {
             font-size: 18px;
             font-weight: 600;
             margin-bottom: 16px;
+            color: var(--brand-text);
         }
 
         .comment-tabs {
@@ -280,11 +353,18 @@
             cursor: pointer;
             border-radius: 6px;
             font-size: 14px;
+            color: var(--brand-text-muted);
+            transition: all 0.3s ease;
         }
 
         .tab.active {
-            background: #007bff;
-            color: white;
+            background: var(--brand-accent);
+            color: var(--brand-text);
+        }
+
+        .tab:hover:not(.active) {
+            background: var(--brand-accent-light);
+            color: var(--brand-text);
         }
 
         .comments-container {
@@ -295,23 +375,24 @@
 
         .comment-item {
             padding: 16px 0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--brand-border);
             cursor: pointer;
+            transition: all 0.3s ease;
         }
 
         .comment-item:hover {
-            background: #f8f9fa;
+            background: var(--brand-accent-light);
             margin: 0 -16px;
             padding: 16px;
             border-radius: 8px;
         }
 
         .comment-item.highlighted {
-            background: #fff3cd;
+            background: var(--brand-accent-medium);
             margin: 0 -16px;
             padding: 16px;
             border-radius: 8px;
-            border-bottom: 1px solid #ffeaa7;
+            border-bottom: 1px solid var(--brand-accent-strong);
         }
 
         .comment-header {
@@ -324,17 +405,33 @@
         .comment-author {
             font-weight: 600;
             font-size: 14px;
+            color: var(--brand-text);
+        }
+
+        .comment-number {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: var(--brand-accent);
+            color: var(--brand-text);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            font-size: 12px;
+            margin-right: 8px;
+            vertical-align: middle;
         }
 
         .comment-time {
             font-size: 12px;
-            color: #666;
+            color: var(--brand-text-subtle);
         }
 
         .comment-text {
             font-size: 14px;
             line-height: 1.4;
             margin-bottom: 8px;
+            color: var(--brand-text);
         }
 
         .comment-actions {
@@ -346,30 +443,39 @@
         .action-btn {
             background: none;
             border: none;
-            color: #007bff;
+            color: var(--brand-accent);
             cursor: pointer;
             padding: 0;
+            transition: all 0.3s ease;
         }
 
         .action-btn:hover {
+            color: var(--brand-accent-hover);
             text-decoration: underline;
         }
 
         .reply-form, .edit-form {
             margin-top: 12px;
             padding: 12px;
-            background: #f8f9fa;
+            background: var(--brand-surface);
             border-radius: 6px;
+            border: 1px solid var(--brand-border);
         }
 
         .reply-input, .edit-input {
             width: 100%;
             padding: 8px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--brand-border-strong);
             border-radius: 4px;
             font-size: 14px;
             resize: vertical;
             min-height: 60px;
+            background: var(--brand-surface);
+            color: var(--brand-text);
+        }
+
+        .reply-input::placeholder, .edit-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .reply-actions {
@@ -378,30 +484,17 @@
             gap: 8px;
         }
 
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-        }
-
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-
         .replies {
             margin-left: 20px;
             margin-top: 12px;
-            border-left: 2px solid #e9ecef;
+            border-left: 2px solid var(--brand-accent-strong);
             padding-left: 16px;
         }
 
         .new-comment-form {
-            padding: 24px;
-            border-top: 1px solid #e0e0e0;
-            background: white;
+            padding: 24px 24px 40px 24px;
+            border-top: 1px solid var(--brand-border);
+            background: var(--brand-surface);
         }
 
         .form-group {
@@ -413,14 +506,28 @@
             margin-bottom: 6px;
             font-weight: 600;
             font-size: 14px;
+            color: var(--brand-text);
         }
 
         .form-input {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--brand-border-strong);
             border-radius: 6px;
             font-size: 14px;
+            background: var(--brand-surface);
+            color: var(--brand-text);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--brand-accent);
+            box-shadow: 0 0 0 3px var(--brand-accent-light);
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .form-textarea {
@@ -431,26 +538,32 @@
         .upload-new-version {
             margin-top: 16px;
             padding: 16px;
-            border: 2px dashed #ddd;
+            border: 2px dashed var(--brand-border-dashed);
             border-radius: 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
+            color: var(--brand-text);
         }
 
         .upload-new-version:hover {
-            border-color: #007bff;
-            background: #f8f9ff;
+            border-color: var(--brand-accent);
+            background: var(--brand-accent-light);
         }
 
-        .hidden {
-            display: none !important;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.7;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -458,7 +571,10 @@
     <!-- Upload Page -->
     <div id="uploadPage" class="upload-container">
         <div class="upload-box">
-            <h1>Image Annotation Tool</h1>
+            <div class="logo-container">
+                <img src="https://www.dropbox.com/scl/fi/6oi2j7w9le1j4qzv00gq2/Big-Sizzle.gif?rlkey=s4a7vkt4zw0x8xiq398n52gbr&raw=1" alt="Big Sizzle Logo" class="logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div style="display: none; color: var(--brand-text); font-size: 24px; font-weight: 600;">Vavlo</div>
+            </div>
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📁</div>
                 <div class="upload-text">Drag & drop your image here</div>
@@ -548,6 +664,21 @@
         let pendingCommentPosition = null;
         let activeCommentId = null;
 
+        // Dropbox configuration - Add your Dropbox App Key here
+        const DROPBOX_CONFIG = {
+            accessToken: 'sl.u.AF9zlUsaWAvT7lv5-RTeqo3kqxb6sxJ0GcFq2CHlh-6QUmOWxF3-0Wh9lKrCgmWcySt-uzJOpBT4bCfZcv-WcXpNF0amQculH6hukhPX6w4D8mzkhmdlT1BMKq1g_VM1jG8VRwpb_kTPOnYN7okshLRBjD3QgB_tZB2S9o5HtWWiG4RA-kdsXE4aNPSaDZEMcwaMTboOLhtK9bRK-71es69uQAxH2m6DJnIZ_ELDYfd8-E1kHTNUas8g2-T7BtJhRxpzRQtzUiJr-aRDBM-BAHAAuXK2pMoBaFCSvMOGdRRmGvcd0X73e4nt5aGhVKOCyqVFvHdeKGepZiQ1Tui6N6EiYeaotTfU6wOM_sJPVOYsX0AZOD9mUAnX-PZFlR2apI_vxXGjXXCgpozd_MX3DVgBiyhigE3jWrlhGphH8uDuUn1AZLABJUjfaNFXUXAA9QQwD7Vu3bV1i8xiq6duRbmeKQJmlcHWMosW5tWocWthT1PSORW8WJlWKfMrnALYjStDMcuMGJE3R9L2U9n84z4kmKva2X9YaZueyA-UKHAAum5BQZ2yEaSl96flelNezkihXO15HYdRFk8JphRj8EMIb5mdpZ6jD8tDWXhOcLHZDpsAOgjuAaiXO3vMJkGE09VZddZcyDjI6xVAxvmU8tGc7W1WvR74G98tEbK3FFd9iUelmhKOSNBCxIdB3QZg-fM_fwyXW53CCi7M3V-OP731JVAXZnZuTR-JpE1biHHDSEuY6DV-TRWIQYqyGeAMoSepDLCxdSSRi9J-USlLJ2mRZ81UbHOMW2nztXfYs2P8aFlfHkw8FTkVF6K91Dbv0bnNZOafjCHVXRCAIeyGZI-yxSxtwW7Zo34iXii2KYR5Q4k_H2eaGK6gVyUkn6zzZI-hX7ujMnLASsCwpL6aA7y_2Xmnmd8MiMcPRowpTm13ddtEjOi3SjxJCUpB-rptoWuJAM83YPkbg0iIoQlabZpZo-WHECXsVURJiHknm1aOaNoiUD0LA9icHJeZXgKT7AooVFmKNvSTvsyGUICfk-qMgHtPhB2IqsHVldVYKhPr8-xl6JUxsJacM4MR6Pp4RjxqEmn-mK30Gt0T7UZNGHjlulJjqAdFrRbqD_eDGKedf0ILPgrg1xJJzb4xWgEfWlExyFlLVfi39HoTcUwAcw2a7Jw2JC4SmgJkBQpdsft834cfFIKhVZ3Q9E8VyDWbNqLOz0XUguscWzIZMLOhKaqBxHYWcqfz9Jg9LNoAHyptMqLTkBlNIf0o8isw-_9YFKV3N_UEmZqi9ThaGtDjCeTjmjJCwGSucxLl03oRUdqH2GwEWpGZmZAoe_TDk-UfAos',
+            appKey: '704javryfn3g330',
+            enabled: true,
+            uploadPath: '/ImageAnnotationTool/'
+        };
+
+        // Server configuration - Update these URLs to match your server (alternative to Dropbox)
+        const SERVER_CONFIG = {
+            uploadUrl: '/api/upload',
+            projectUrl: '/api/project',
+            enabled: false // Set to true when you have a server set up
+        };
+
         // Initialize application
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
@@ -610,6 +741,17 @@
 
         function createNewProject(file) {
             const projectId = generateProjectId();
+            
+            if (DROPBOX_CONFIG.enabled) {
+                uploadToDropbox(file, projectId);
+            } else if (SERVER_CONFIG.enabled) {
+                uploadToServer(file, projectId);
+            } else {
+                createProjectLocally(file, projectId);
+            }
+        }
+
+        function createProjectLocally(file, projectId) {
             currentProject = {
                 id: projectId,
                 name: file.name.replace(/\.[^/.]+$/, ""),
@@ -618,7 +760,8 @@
                         id: 1,
                         file: file,
                         url: URL.createObjectURL(file),
-                        uploadDate: new Date()
+                        uploadDate: new Date(),
+                        filename: file.name
                     }
                 ]
             };
@@ -630,19 +773,269 @@
             showDashboard();
         }
 
+        async function uploadToDropbox(file, projectId) {
+            try {
+                showUploadProgress();
+                
+                const fileName = `${projectId}_v1_${file.name}`;
+                const filePath = `${DROPBOX_CONFIG.uploadPath}${fileName}`;
+                
+                // Upload file to Dropbox
+                const uploadResponse = await fetch('https://content.dropboxapi.com/2/files/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
+                        'Content-Type': 'application/octet-stream',
+                        'Dropbox-API-Arg': JSON.stringify({
+                            path: filePath,
+                            mode: 'add',
+                            autorename: true
+                        })
+                    },
+                    body: file
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`Dropbox upload failed: ${uploadResponse.statusText}`);
+                }
+
+                const uploadResult = await uploadResponse.json();
+                
+                // Create shared link
+                const shareResponse = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: uploadResult.path_display,
+                        settings: {
+                            requested_visibility: 'public'
+                        }
+                    })
+                });
+
+                if (!shareResponse.ok) {
+                    throw new Error(`Dropbox sharing failed: ${shareResponse.statusText}`);
+                }
+
+                const shareResult = await shareResponse.json();
+                
+                // Convert Dropbox share URL to direct image URL
+                const imageUrl = shareResult.url.replace('dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
+                
+                currentProject = {
+                    id: projectId,
+                    name: file.name.replace(/\.[^/.]+$/, ""),
+                    versions: [
+                        {
+                            id: 1,
+                            url: imageUrl,
+                            dropboxPath: uploadResult.path_display,
+                            uploadDate: new Date(),
+                            filename: file.name
+                        }
+                    ]
+                };
+
+                currentVersion = 1;
+                comments[projectId] = {};
+                
+                hideUploadProgress();
+                saveProjectToDropbox();
+                showDashboard();
+                
+            } catch (error) {
+                hideUploadProgress();
+                alert('Dropbox upload failed: ' + error.message + '\nFalling back to local storage.');
+                createProjectLocally(file, projectId);
+            }
+        }
+
+        async function uploadToServer(file, projectId) {
+            try {
+                showUploadProgress();
+                
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('projectId', projectId);
+                formData.append('projectName', file.name.replace(/\.[^/.]+$/, ""));
+
+                const response = await fetch(SERVER_CONFIG.uploadUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                currentProject = {
+                    id: projectId,
+                    name: result.projectName,
+                    versions: [
+                        {
+                            id: 1,
+                            url: result.imageUrl,
+                            uploadDate: new Date(result.uploadDate),
+                            filename: result.filename
+                        }
+                    ]
+                };
+
+                currentVersion = 1;
+                comments[projectId] = {};
+                
+                hideUploadProgress();
+                showDashboard();
+                
+            } catch (error) {
+                hideUploadProgress();
+                alert('Upload failed: ' + error.message + '\nFalling back to local storage.');
+                createProjectLocally(file, projectId);
+            }
+        }
+
         function addNewVersion(file) {
             const newVersionId = currentProject.versions.length + 1;
+            
+            if (DROPBOX_CONFIG.enabled) {
+                uploadNewVersionToDropbox(file, newVersionId);
+            } else if (SERVER_CONFIG.enabled) {
+                uploadNewVersionToServer(file, newVersionId);
+            } else {
+                addNewVersionLocally(file, newVersionId);
+            }
+        }
+
+        function addNewVersionLocally(file, newVersionId) {
             currentProject.versions.push({
                 id: newVersionId,
                 file: file,
                 url: URL.createObjectURL(file),
-                uploadDate: new Date()
+                uploadDate: new Date(),
+                filename: file.name
             });
 
             currentVersion = newVersionId;
             saveProject();
             updateVersionSelector();
             loadVersion(newVersionId);
+        }
+
+        async function uploadNewVersionToDropbox(file, newVersionId) {
+            try {
+                showUploadProgress();
+                
+                const fileName = `${currentProject.id}_v${newVersionId}_${file.name}`;
+                const filePath = `${DROPBOX_CONFIG.uploadPath}${fileName}`;
+                
+                // Upload file to Dropbox
+                const uploadResponse = await fetch('https://content.dropboxapi.com/2/files/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
+                        'Content-Type': 'application/octet-stream',
+                        'Dropbox-API-Arg': JSON.stringify({
+                            path: filePath,
+                            mode: 'add',
+                            autorename: true
+                        })
+                    },
+                    body: file
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`Dropbox upload failed: ${uploadResponse.statusText}`);
+                }
+
+                const uploadResult = await uploadResponse.json();
+                
+                // Create shared link
+                const shareResponse = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: uploadResult.path_display,
+                        settings: {
+                            requested_visibility: 'public'
+                        }
+                    })
+                });
+
+                if (!shareResponse.ok) {
+                    throw new Error(`Dropbox sharing failed: ${shareResponse.statusText}`);
+                }
+
+                const shareResult = await shareResponse.json();
+                
+                // Convert Dropbox share URL to direct image URL
+                const imageUrl = shareResult.url.replace('dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
+                
+                currentProject.versions.push({
+                    id: newVersionId,
+                    url: imageUrl,
+                    dropboxPath: uploadResult.path_display,
+                    uploadDate: new Date(),
+                    filename: file.name
+                });
+
+                currentVersion = newVersionId;
+                hideUploadProgress();
+                saveProjectToDropbox();
+                updateVersionSelector();
+                loadVersion(newVersionId);
+                
+            } catch (error) {
+                hideUploadProgress();
+                alert('Dropbox upload failed: ' + error.message + '\nFalling back to local storage.');
+                addNewVersionLocally(file, newVersionId);
+            }
+        }
+
+        async function uploadNewVersionToServer(file, newVersionId) {
+            try {
+                showUploadProgress();
+                
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('projectId', currentProject.id);
+                formData.append('versionId', newVersionId);
+
+                const response = await fetch(SERVER_CONFIG.uploadUrl + '/version', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                currentProject.versions.push({
+                    id: newVersionId,
+                    url: result.imageUrl,
+                    uploadDate: new Date(result.uploadDate),
+                    filename: result.filename
+                });
+
+                currentVersion = newVersionId;
+                hideUploadProgress();
+                updateVersionSelector();
+                loadVersion(newVersionId);
+                
+            } catch (error) {
+                hideUploadProgress();
+                alert('Upload failed: ' + error.message + '\nFalling back to local storage.');
+                addNewVersionLocally(file, newVersionId);
+            }
         }
 
         function showDashboard() {
@@ -750,6 +1143,7 @@
         function cancelComment() {
             isAddingComment = false;
             pendingCommentPosition = null;
+            
             document.getElementById('newCommentForm').style.display = 'none';
             document.getElementById('authorName').value = '';
             document.getElementById('commentText').value = '';
@@ -778,7 +1172,7 @@
             
             div.innerHTML = `
                 <div class="comment-header">
-                    <span class="comment-author">#${number} ${comment.author}</span>
+                    <span class="comment-author"><span class="comment-number">#${number}</span> ${comment.author}</span>
                     <span class="comment-time">${formatDate(comment.timestamp)}</span>
                 </div>
                 <div class="comment-text">${comment.text}</div>
@@ -833,10 +1227,12 @@
             versionComments.forEach((comment, index) => {
                 const marker = document.createElement('div');
                 marker.className = 'annotation-marker';
-                marker.textContent = index + 1;
                 marker.dataset.commentId = comment.id;
                 marker.style.left = comment.position.x + '%';
                 marker.style.top = comment.position.y + '%';
+                
+                // Add tooltip showing comment preview
+                marker.title = `${comment.author}: ${comment.text.substring(0, 50)}${comment.text.length > 50 ? '...' : ''}`;
                 
                 marker.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1058,25 +1454,139 @@
             document.getElementById('uploadPage').style.display = 'flex';
         }
 
-        // Storage functions
+        // Storage and server functions
         function saveProject() {
             if (currentProject) {
                 const projectData = {
                     project: currentProject,
                     comments: comments[currentProject.id] || {}
                 };
+                
+                if (DROPBOX_CONFIG.enabled) {
+                    saveProjectToDropbox(projectData);
+                } else if (SERVER_CONFIG.enabled) {
+                    saveProjectToServer(projectData);
+                } else {
+                    localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
+                }
+            }
+        }
+
+        async function saveProjectToDropbox(projectData) {
+            try {
+                const fileName = `${currentProject.id}_project.json`;
+                const filePath = `${DROPBOX_CONFIG.uploadPath}projects/${fileName}`;
+                
+                const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
+                        'Content-Type': 'application/octet-stream',
+                        'Dropbox-API-Arg': JSON.stringify({
+                            path: filePath,
+                            mode: 'overwrite',
+                            autorename: false
+                        })
+                    },
+                    body: JSON.stringify(projectData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Dropbox save failed: ${response.statusText}`);
+                }
+                
+            } catch (error) {
+                console.warn('Failed to save to Dropbox, falling back to local storage:', error);
                 localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
             }
         }
 
         function loadProject(projectId) {
+            if (DROPBOX_CONFIG.enabled) {
+                return loadProjectFromDropbox(projectId);
+            } else if (SERVER_CONFIG.enabled) {
+                return loadProjectFromServer(projectId);
+            } else {
+                return loadProjectFromLocal(projectId);
+            }
+        }
+
+        async function loadProjectFromDropbox(projectId) {
+            try {
+                const fileName = `${projectId}_project.json`;
+                const filePath = `${DROPBOX_CONFIG.uploadPath}projects/${fileName}`;
+                
+                const response = await fetch('https://content.dropboxapi.com/2/files/download', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
+                        'Dropbox-API-Arg': JSON.stringify({
+                            path: filePath
+                        })
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Dropbox load failed: ${response.statusText}`);
+                }
+
+                const projectData = await response.json();
+                currentProject = projectData.project;
+                comments[projectId] = projectData.comments || {};
+                
+                return true;
+            } catch (error) {
+                console.warn('Failed to load from Dropbox, trying local storage:', error);
+                return loadProjectFromLocal(projectId);
+            }
+        }
+
+        async function saveProjectToServer(projectData) {
+            try {
+                const response = await fetch(SERVER_CONFIG.projectUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(projectData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Save failed: ${response.statusText}`);
+                }
+            } catch (error) {
+                console.warn('Failed to save to server, falling back to local storage:', error);
+                localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
+            }
+        }
+
+        async function loadProjectFromServer(projectId) {
+            try {
+                const response = await fetch(`${SERVER_CONFIG.projectUrl}/${projectId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Load failed: ${response.statusText}`);
+                }
+
+                const projectData = await response.json();
+                currentProject = projectData.project;
+                comments[projectId] = projectData.comments || {};
+                
+                return true;
+            } catch (error) {
+                console.warn('Failed to load from server, trying local storage:', error);
+                return loadProjectFromLocal(projectId);
+            }
+        }
+
+        function loadProjectFromLocal(projectId) {
             const data = localStorage.getItem('project_' + projectId);
             if (data) {
                 const projectData = JSON.parse(data);
                 currentProject = projectData.project;
                 comments[projectId] = projectData.comments || {};
                 
-                // Recreate blob URLs for images
+                // Recreate blob URLs for images (only for local files)
                 currentProject.versions.forEach(version => {
                     if (version.file) {
                         version.url = URL.createObjectURL(version.file);
@@ -1086,6 +1596,24 @@
                 return true;
             }
             return false;
+        }
+
+        function showUploadProgress() {
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-icon">⏳</div>
+                <div class="upload-text" style="color: #ffffff;">Uploading...</div>
+                <div class="upload-subtext" style="color: rgba(255, 255, 255, 0.7);">Please wait while your image is being uploaded</div>
+            `;
+        }
+
+        function hideUploadProgress() {
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-icon" style="color: rgba(255, 255, 255, 0.6);">📁</div>
+                <div class="upload-text" style="color: #ffffff;">Drag & drop your image here</div>
+                <div class="upload-subtext" style="color: rgba(255, 255, 255, 0.7);">or click to browse files</div>
+            `;
         }
 
         function loadFromUrl() {
