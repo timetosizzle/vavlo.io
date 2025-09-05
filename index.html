@@ -53,6 +53,12 @@
     .project-title { font-size: 18px; font-weight: 600; color: var(--brand-text); }
     .version-selector { padding: 8px 12px; border: 1px solid var(--brand-border-strong); border-radius: 6px; font-size: 14px; background: var(--brand-surface); color: var(--brand-text); }
 
+    /* Zoom controls in header */
+    .zoom-controls { display: flex; margin-left: 8px; background: var(--brand-surface-hover); border-radius: 6px; border: 1px solid var(--brand-border); overflow: hidden; }
+    .zoom-btn { background: none; border: none; padding: 6px 10px; cursor: pointer; font-size: 14px; color: var(--brand-text); transition: all .2s ease; border-right: 1px solid var(--brand-border); }
+    .zoom-btn:last-child { border-right: none; }
+    .zoom-btn:hover { background: var(--brand-accent-light); }
+
     .header-right { display: flex; align-items: center; gap: 16px; }
     .share-link { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: transparent; border: 1px solid var(--brand-border-strong); border-radius: 6px; font-size: 14px; color: var(--brand-text); }
     .share-input { background: transparent; border: none; color: var(--brand-text); outline: none; width: 260px; font-size: 14px; }
@@ -61,17 +67,13 @@
 
     .main-content { display: flex; height: calc(100vh - 73px); }
 
-    /* Scroll only the image area; keep header and sidebar static */
+    /* Image area scrolls internally */
     .image-container { flex: 1; position: relative; overflow: auto; background: rgba(0,0,0,0.3); display: flex; align-items: flex-start; justify-content: center; }
-    .image-wrapper { position: relative; margin: 0 auto; cursor: crosshair; transform-origin: top left; }
-    /* Let tall images scroll; width fits container */
-    .main-image { max-width: 100%; height: auto; display: block; user-select: none; transition: transform .1s linear; }
+    .image-container.space-ready { cursor: grab; }
+    .image-container.panning { cursor: grabbing; }
 
-    /* Zoom controls visible top-right */
-    .zoom-controls { position: sticky; top: 12px; margin-left: auto; right: 12px; z-index: 20; background: var(--brand-surface-hover); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: flex; overflow: hidden; border: 1px solid var(--brand-border); }
-    .zoom-btn { background: none; border: none; padding: 10px 12px; cursor: pointer; font-size: 16px; color: var(--brand-text); transition: all .2s ease; border-right: 1px solid var(--brand-border); }
-    .zoom-btn:last-child { border-right: none; }
-    .zoom-btn:hover { background: var(--brand-accent-light); }
+    .image-wrapper { position: relative; margin: 0 auto; cursor: crosshair; transform-origin: top left; display: inline-block; }
+    .main-image { max-width: none; max-height: none; object-fit: contain; user-select: none; transition: transform .1s linear; display: block; }
 
     .annotation-marker { position: absolute; width: 12px; height: 12px; background: var(--brand-accent); border: 2px solid var(--brand-text); border-radius: 50%; cursor: pointer; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 2px 8px var(--brand-accent-strong); transition: all .2s ease; }
     .annotation-marker:hover { transform: translate(-50%, -50%) scale(1.2); background: var(--brand-accent-hover); box-shadow: 0 4px 12px rgba(255,3,126,.6); }
@@ -125,7 +127,7 @@
   <div id="uploadPage" class="upload-container">
     <div class="upload-box">
       <div class="logo-container">
-        <!-- Use a branch URL or local asset and add a cache buster so new logos show up even if name is the same -->
+        <!-- Cache-buster added so same-name swaps show immediately -->
         <img id="brandLogo" src="https://raw.githubusercontent.com/timetosizzle/vavlo.io/main/Vavlo%20-%20logo-%20white%401000x.png" alt="Vavlo Logo" class="logo" />
       </div>
       <div class="upload-area" id="uploadArea">
@@ -145,6 +147,12 @@
         <button class="back-btn" id="backBtn">←</button>
         <div class="project-title" id="projectTitle">Untitled Project</div>
         <select class="version-selector" id="versionSelector"></select>
+        <!-- Zoom controls moved up next to version dropdown -->
+        <div class="zoom-controls" id="zoomControls">
+          <button class="zoom-btn" id="zoomOutBtn" title="Zoom out (–)">−</button>
+          <button class="zoom-btn" id="zoomResetBtn" title="Reset (0)">100%</button>
+          <button class="zoom-btn" id="zoomInBtn" title="Zoom in (+)">+</button>
+        </div>
       </div>
       <div class="header-right">
         <div class="share-link">
@@ -159,12 +167,6 @@
 
     <div class="main-content">
       <div class="image-container" id="imageContainer">
-        <!-- Zoom controls at top-right of the image area -->
-        <div class="zoom-controls" id="zoomControls">
-          <button class="zoom-btn" id="zoomOutBtn" title="Zoom out (–)">−</button>
-          <button class="zoom-btn" id="zoomResetBtn" title="Reset (0)">100%</button>
-          <button class="zoom-btn" id="zoomInBtn" title="Zoom in (+)">+</button>
-        </div>
         <div class="image-wrapper" id="imageWrapper">
           <img id="mainImage" class="main-image" alt="Main Image" />
         </div>
@@ -199,7 +201,7 @@
   </div>
 
   <script>
-    // State
+    // ===== State =====
     let currentProject = null;
     let currentVersion = 1;
     let comments = {};
@@ -208,17 +210,16 @@
     let pendingCommentPosition = null;
     let activeCommentId = null;
 
-    // Panning state
+    // Panning
     let isSpacePressed = false;
     let isDragging = false;
-    let dragStart = { x: 0, y: 0 };
-    let scrollStart = { left: 0, top: 0 };
+    let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Config
+    // Config (cloud disabled by default in this version)
     const DROPBOX_CONFIG = { enabled: false };
     const SERVER_CONFIG = { enabled: false };
 
-    // Init
+    // ===== Init =====
     document.addEventListener('DOMContentLoaded', () => {
       cacheBustLogo();
       setupEventListeners();
@@ -227,22 +228,27 @@
 
     function cacheBustLogo() {
       const logo = document.getElementById('brandLogo');
-      if (logo) {
+      if (!logo) return;
+      try {
         const url = new URL(logo.src);
         url.searchParams.set('v', Date.now().toString());
         logo.src = url.toString();
-      }
+      } catch (_) {}
     }
 
+    // ===== Event wiring =====
     function setupEventListeners() {
       const fileInput = document.getElementById('fileInput');
       const chooseBtn = document.getElementById('chooseBtn');
-        chooseBtn.addEventListener('click', () => fileInput.click());
       const uploadArea = document.getElementById('uploadArea');
       const newVersionInput = document.getElementById('newVersionInput');
       const backBtn = document.getElementById('backBtn');
       const copyBtn = document.getElementById('copyBtn');
+      const imageWrapper = document.getElementById('imageWrapper');
+      const imageContainer = document.getElementById('imageContainer');
 
+      // File
+      chooseBtn.addEventListener('click', () => fileInput.click());
       fileInput.addEventListener('change', handleFileUpload);
       newVersionInput.addEventListener('change', handleNewVersionUpload);
       uploadArea.addEventListener('click', () => fileInput.click());
@@ -250,58 +256,58 @@
       uploadArea.addEventListener('dragleave', handleDragLeave);
       uploadArea.addEventListener('drop', handleDrop);
 
-      document.getElementById('imageWrapper').addEventListener('click', handleImageClick);
+      // Image click for annotations
+      imageWrapper.addEventListener('click', handleImageClick);
+
+      // Version selector
       document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
 
-      // Zoom controls
+      // Zoom controls in header
       document.getElementById('zoomInBtn').addEventListener('click', () => zoomBy(1.2));
       document.getElementById('zoomOutBtn').addEventListener('click', () => zoomBy(1/1.2));
       document.getElementById('zoomResetBtn').addEventListener('click', () => setZoom(1));
 
-      // Keyboard shortcuts: +, -, 0
+      // Keyboard shortcuts
       document.addEventListener('keydown', (e) => {
         if (e.key === '+') { e.preventDefault(); zoomBy(1.2); }
         if (e.key === '-') { e.preventDefault(); zoomBy(1/1.2); }
         if (e.key === '0') { e.preventDefault(); setZoom(1); }
       });
 
-      // Spacebar panning
-      const imageContainer = document.getElementById('imageContainer');
+      // Spacebar to pan
       document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !isSpacePressed) {
           e.preventDefault();
           isSpacePressed = true;
-          imageContainer.style.cursor = 'grab';
+          imageContainer.classList.add('space-ready');
         }
       });
       document.addEventListener('keyup', (e) => {
         if (e.code === 'Space') {
           isSpacePressed = false;
-          imageContainer.style.cursor = '';
+          imageContainer.classList.remove('space-ready');
+          if (isDragging) { isDragging = false; imageContainer.classList.remove('panning'); }
         }
       });
       imageContainer.addEventListener('mousedown', (e) => {
         if (!isSpacePressed) return;
         isDragging = true;
-        imageContainer.style.cursor = 'grabbing';
-        dragStart = { x: e.clientX, y: e.clientY };
-        scrollStart = { left: imageContainer.scrollLeft, top: imageContainer.scrollTop };
+        imageContainer.classList.add('panning');
+        dragStart = { x: e.clientX, y: e.clientY, scrollLeft: imageContainer.scrollLeft, scrollTop: imageContainer.scrollTop };
+        e.preventDefault();
       });
-      window.addEventListener('mousemove', (e) => {
+      document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         const dx = e.clientX - dragStart.x;
         const dy = e.clientY - dragStart.y;
-        imageContainer.scrollLeft = scrollStart.left - dx;
-        imageContainer.scrollTop = scrollStart.top - dy;
+        imageContainer.scrollLeft = dragStart.scrollLeft - dx;
+        imageContainer.scrollTop = dragStart.scrollTop - dy;
       });
-      window.addEventListener('mouseup', () => {
-        if (isDragging) {
-          isDragging = false;
-          imageContainer.style.cursor = isSpacePressed ? 'grab' : '';
-        }
+      document.addEventListener('mouseup', () => {
+        if (isDragging) { isDragging = false; imageContainer.classList.remove('panning'); }
       });
 
-      // Ctrl/Meta + wheel to zoom
+      // Ctrl/Meta + wheel zoom
       imageContainer.addEventListener('wheel', (e) => {
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
@@ -311,21 +317,19 @@
       }, { passive: false });
 
       // Tabs
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', (evt) => filterComments(evt));
-      });
+      document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', (evt) => filterComments(evt)));
 
       // Copy share link
       copyBtn.addEventListener('click', copyShareLink);
 
-      // Comment form buttons
+      // Comment buttons
       document.getElementById('addCommentBtn').addEventListener('click', submitComment);
       document.getElementById('cancelCommentBtn').addEventListener('click', cancelComment);
 
       backBtn.addEventListener('click', goBack);
     }
 
-    // Upload flow
+    // ===== Upload / Versions =====
     function handleFileUpload(e) { const file = e.target.files[0]; if (file) createNewProject(file); }
     function handleNewVersionUpload(e) { const file = e.target.files[0]; if (file && currentProject) addNewVersion(file); }
     function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
@@ -350,7 +354,7 @@
       loadVersion(newVersionId);
     }
 
-    // UI
+    // ===== UI render =====
     function showDashboard() {
       document.getElementById('uploadPage').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
@@ -366,7 +370,8 @@
       selector.innerHTML = '';
       currentProject.versions.forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v.id; opt.textContent = `Version ${v.id}${v.id === currentProject.versions.length ? ' (Current)' : ''}`;
+        opt.value = v.id;
+        opt.textContent = `Version ${v.id}${v.id === currentProject.versions.length ? ' (Current)' : ''}`;
         selector.appendChild(opt);
       });
       selector.value = currentVersion;
@@ -382,7 +387,7 @@
 
     function handleVersionChange(e) { currentVersion = parseInt(e.target.value, 10); loadVersion(currentVersion); renderComments(); }
 
-    // Comments
+    // ===== Comments =====
     function handleImageClick(e) {
       if (isAddingComment || isDragging || isSpacePressed) return;
       const img = document.getElementById('mainImage');
@@ -467,7 +472,6 @@
         <div class="replies" id="replies-${comment.id}"></div>
       `;
       div.addEventListener('click', (e) => {
-        // Action buttons
         const action = e.target?.dataset?.action;
         if (action) {
           e.stopPropagation();
@@ -479,7 +483,6 @@
         }
         highlightAnnotation(comment.id);
       });
-      // Replies
       if (comment.replies?.length) {
         const repliesContainer = div.querySelector(`#replies-${comment.id}`);
         comment.replies.forEach(r => repliesContainer.appendChild(createReplyElement(comment.id, r)));
@@ -502,10 +505,8 @@
         </div>
       `;
       div.addEventListener('click', (e) => {
-        const action = e.target?.dataset?.action;
-        const rid = e.target?.dataset?.reply;
-        if (!action) return;
-        e.stopPropagation();
+        const action = e.target?.dataset?.action; const rid = e.target?.dataset?.reply;
+        if (!action) return; e.stopPropagation();
         if (action === 'edit-reply') editReply(parentId, rid);
         if (action === 'delete-reply') deleteReply(parentId, rid);
       });
@@ -626,7 +627,7 @@
       renderAnnotations();
     }
 
-    function editReply(parentId, replyId) { console.log('Edit reply', parentId, replyId); /* Implement as needed */ }
+    function editReply(parentId, replyId) { console.log('Edit reply', parentId, replyId); }
 
     function deleteReply(parentId, replyId) {
       if (!confirm('Delete this reply?')) return;
@@ -644,7 +645,7 @@
       renderComments();
     }
 
-    // Zoom
+    // ===== Zoom =====
     function zoomBy(factor, pivot) { setZoom(clamp(zoomLevel * factor, 0.1, 5), pivot); }
     function setZoom(level, pivot) {
       const img = document.getElementById('mainImage');
@@ -652,36 +653,36 @@
       const container = document.getElementById('imageContainer');
       const prev = zoomLevel;
       zoomLevel = level;
-      // Maintain apparent pivot by adjusting scroll
+      // Maintain apparent pivot by adjusting scroll when zooming with wheel
       if (pivot) {
         const rect = wrap.getBoundingClientRect();
         const cx = pivot.x - rect.left + container.scrollLeft;
         const cy = pivot.y - rect.top + container.scrollTop;
         const scale = zoomLevel / prev;
         container.scrollLeft = (cx * scale) - (pivot.x - rect.left);
-        container.scrollTop = (cy * scale) - (pivot.y - rect.top);
+        container.scrollTop  = (cy * scale) - (pivot.y - rect.top);
       }
       img.style.transform = `scale(${zoomLevel})`;
       document.getElementById('zoomResetBtn').textContent = `${Math.round(zoomLevel * 100)}%`;
     }
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
-    // Share
+    // ===== Share =====
     async function copyShareLink() {
       const input = document.getElementById('shareUrl');
-      try {
-        await navigator.clipboard.writeText(input.value);
-      } catch {
-        input.select(); document.execCommand('copy');
-      }
+      try { await navigator.clipboard.writeText(input.value); }
+      catch { input.select(); document.execCommand('copy'); }
       const btn = document.getElementById('copyBtn');
-      const txt = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = txt, 1500);
+      const t = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = t, 1500);
     }
 
-    // Nav
-    function goBack() { document.getElementById('dashboard').style.display = 'none'; document.getElementById('uploadPage').style.display = 'flex'; }
+    // ===== Nav =====
+    function goBack() {
+      document.getElementById('dashboard').style.display = 'none';
+      document.getElementById('uploadPage').style.display = 'flex';
+    }
 
-    // Storage
+    // ===== Storage =====
     function saveProject() {
       if (!currentProject) return;
       const data = { project: currentProject, comments: comments[currentProject.id] || {} };
@@ -693,7 +694,6 @@
       if (!raw) return false;
       const data = JSON.parse(raw);
       currentProject = data.project; comments[projectId] = data.comments || {};
-      // Recreate blob URLs
       currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); });
       return true;
     }
@@ -704,11 +704,11 @@
       if (pid && loadProject(pid)) { currentVersion = currentProject.versions.length; showDashboard(); }
     }
 
-    // Utils
+    // ===== Utils =====
     function generateProjectId() { return 'proj_' + Math.random().toString(36).slice(2, 11); }
     function generateCommentId() { return 'comment_' + Math.random().toString(36).slice(2, 11); }
     function formatDate(d) { return new Date(d).toLocaleString(); }
-    function escapeHtml(str) { return String(str).replace(/[&<>"]+/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s])); }
+    function escapeHtml(str) { return String(str).replace(/[&<>\"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[s])); }
   </script>
 </body>
 </html>
