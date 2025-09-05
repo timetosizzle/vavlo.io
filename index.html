@@ -699,27 +699,26 @@
           headers: { ...SERVER_CONFIG.extraHeaders }
         });
         if (!res.ok) throw await httpError(res);
-        const parsed = await parseOkResponse(res);
-        if (!parsed) throw new Error('Upload succeeded but response format was not recognized.');
+        const parsed = await parseOkResponse(res, { projectId });
 
-        // prefer server-provided id if present
-        const finalProjectId = parsed.projectId || projectId;
-        currentProject = {
-          id: finalProjectId,
-          name: parsed.projectName || file.name.replace(/\.[^/.]+$/, ''),
-          versions: [
-            {
-              id: 1,
-              url: parsed.imageUrl,
-              uploadDate: new Date(parsed.uploadDate || Date.now()),
-              filename: parsed.filename || file.name
-            }
-          ]
-        };
-        currentVersion = 1;
-        comments[finalProjectId] = {};
-        showDashboard();
-        saveProject();
+        if (parsed) {
+          const finalProjectId = parsed.projectId || projectId;
+          currentProject = {
+            id: finalProjectId,
+            name: parsed.projectName || file.name.replace(/\.[^/.]+$/, ''),
+            versions: [ { id: 1, url: parsed.imageUrl, uploadDate: new Date(parsed.uploadDate || Date.now()), filename: parsed.filename || file.name } ]
+          };
+          currentVersion = 1;
+          comments[finalProjectId] = {};
+          showDashboard();
+          saveProject();
+          return;
+        }
+
+        // Fallback: server returned 200 with empty or non-JSON body. Try loading by the id we sent.
+        const loaded = await loadProjectAny(projectId);
+        if (loaded) { currentVersion = currentProject.versions.length; showDashboard(); saveProject(); return; }
+        throw new Error('Upload returned 200 OK with no usable body, and loading the project by id did not work.');
       } catch (err) {
         console.error('Upload error:', err);
         alert(renderFriendlyError('upload', err));
@@ -736,11 +735,18 @@
           headers: { ...SERVER_CONFIG.extraHeaders }
         });
         if (!res.ok) throw await httpError(res);
-        const parsed = await parseOkResponse(res);
-        if (!parsed) throw new Error('Version upload succeeded but response format was not recognized.');
+        const parsed = await parseOkResponse(res, { projectId: currentProject.id });
 
-        currentProject.versions.push({ id: newVersionId, url: parsed.imageUrl, uploadDate: new Date(parsed.uploadDate || Date.now()), filename: parsed.filename || file.name });
-        currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId); saveProject();
+        if (parsed?.imageUrl) {
+          currentProject.versions.push({ id: newVersionId, url: parsed.imageUrl, uploadDate: new Date(parsed.uploadDate || Date.now()), filename: parsed.filename || file.name });
+          currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId); saveProject();
+          return;
+        }
+
+        // Fallback: reload project from API
+        const ok = await loadProjectAny(currentProject.id);
+        if (ok) { currentVersion = currentProject.versions.length; updateVersionSelector(); loadVersion(currentVersion); saveProject(); return; }
+        throw new Error('Version upload returned 200 OK with no usable body, and reloading the project failed.');
       } catch (err) {
         console.error('Version upload error:', err);
         alert(renderFriendlyError('version upload', err));
@@ -757,8 +763,9 @@
       if (!res.ok) throw await httpError(res);
     }
 
-    async function loadProjectFromServer(projectId) {
-      const res = await fetch(`${SERVER_CONFIG.projectUrl}/${projectId}`, {
+    async function loadProjectFromServer(projectId, urlOverride) {
+      const url = urlOverride || `${SERVER_CONFIG.projectUrl}/${projectId}`;
+      const res = await fetch(url, {
         credentials: SERVER_CONFIG.useCredentials ? 'include' : 'same-origin',
         headers: { ...SERVER_CONFIG.extraHeaders }
       });
@@ -767,6 +774,18 @@
       currentProject = projectData.project;
       comments[projectId] = projectData.comments || {};
       return true;
+    }
+
+    async function loadProjectAny(projectId) {
+      const candidates = [
+        `${SERVER_CONFIG.projectUrl}/${projectId}`,
+        `${SERVER_CONFIG.projectUrl}?id=${encodeURIComponent(projectId)}`,
+        `${SERVER_CONFIG.projectUrl}?projectId=${encodeURIComponent(projectId)}`
+      ];
+      for (const u of candidates) {
+        try { await loadProjectFromServer(projectId, u); return true; } catch (e) { console.warn('Load attempt failed for', u, e); }
+      }
+      return false;
     }
 
     async function loadProject(projectId) {
@@ -778,7 +797,7 @@
       const params = new URLSearchParams(window.location.search);
       const pid = params.get('project');
       if (pid) {
-        const ok = await loadProject(pid);
+        const ok = await loadProjectAny(pid);
         if (ok) { currentVersion = currentProject.versions.length; showDashboard(); }
       }
     }
@@ -792,9 +811,7 @@
     // Build FormData that is compatible with varied backends
     function buildUploadFormData({ file, projectId, projectName, versionId }) {
       const fd = new FormData();
-      // Primary field name
       fd.append(SERVER_CONFIG.imageFieldName || 'image', file, file.name);
-      // Common alternates for best compatibility
       if ((SERVER_CONFIG.imageFieldName || 'image') !== 'file') fd.append('file', file, file.name);
       if ((SERVER_CONFIG.imageFieldName || 'image') !== 'image') fd.append('image', file, file.name);
       if (projectId) fd.append('projectId', projectId);
@@ -803,21 +820,44 @@
       return fd;
     }
 
-    // Parse OK responses even if the server returns text or a bare URL
-    async function parseOkResponse(res) {
+    // Parse OK responses even if the server returns text, HTML, or headers with links
+    async function parseOkResponse(res, ctx = {}) {
       const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+      // 1) Try JSON
+      if (ct.includes('application/json')) {
+        try { return normalizeUploadResult(await res.json()); } catch (e) { console.warn('JSON parse failed on JSON content-type', e); }
+      }
+
+      // 2) Try headers with a URL or id
+      const headerUrl = res.headers.get('x-image-url') || res.headers.get('x-file-url') || res.headers.get('location') || res.headers.get('content-location');
+      if (headerUrl && isProbablyUrl(headerUrl)) return { imageUrl: headerUrl };
+
+      const headerId = res.headers.get('x-project-id') || res.headers.get('x-id');
+      if (headerId && ctx.projectId && headerId === ctx.projectId) return null; // project likely created; follow-up GET will handle
+
+      // 3) Try text body
       try {
-        if (ct.includes('application/json')) {
-          const data = await res.json();
-          return normalizeUploadResult(data);
-        }
         const text = await res.text();
-        console.debug('Upload response (text):', text.slice(0, 200));
-        if (isProbablyUrl(text.trim())) return { imageUrl: text.trim() };
-        try { const maybe = JSON.parse(text); return normalizeUploadResult(maybe); } catch {}
-        throw new Error('OK response but not JSON. Body preview: ' + text.slice(0, 160));
+        const trimmed = text.trim();
+        if (!trimmed) return null; // empty body, fallback to GET methods
+
+        // Bare URL in body
+        if (isProbablyUrl(trimmed)) return { imageUrl: trimmed };
+
+        // HTML with an <a href="..."> or JSON string hidden
+        const urlFromHtml = extractFirstUrlFromHtml(trimmed);
+        if (urlFromHtml) return { imageUrl: urlFromHtml };
+
+        // Sometimes servers send JSON but wrong content-type
+        try { const maybe = JSON.parse(trimmed); return normalizeUploadResult(maybe); } catch {}
+
+        // Nothing usable
+        console.debug('OK body not usable. First 200 chars:', trimmed.slice(0, 200));
+        return null;
       } catch (e) {
-        throw e;
+        console.warn('Reading text body failed', e);
+        return null;
       }
     }
 
@@ -825,12 +865,17 @@
       if (!obj) return null;
       if (typeof obj === 'string' && isProbablyUrl(obj)) return { imageUrl: obj };
       const imageUrl = obj.imageUrl || obj.url || obj.link || (obj.data && (obj.data.imageUrl || obj.data.url || obj.data.link));
-      const projectId = obj.projectId || (obj.project && obj.project.id);
+      const projectId = obj.projectId || obj.id || (obj.project && (obj.project.id || obj.project.projectId));
       const projectName = obj.projectName || obj.name || (obj.project && obj.project.name);
       const filename = obj.filename || (obj.file && obj.file.name);
       const uploadDate = obj.uploadDate || obj.updatedAt || obj.createdAt;
-      if (!imageUrl) return null;
+      if (!imageUrl && !projectId) return null;
       return { imageUrl, projectId, projectName, filename, uploadDate };
+    }
+
+    function extractFirstUrlFromHtml(html) {
+      const hrefMatch = html.match(/href\s*=\s*"(https?:[^\"]+)"/i) || html.match(/src\s*=\s*"(https?:[^\"]+)"/i);
+      return hrefMatch ? hrefMatch[1] : null;
     }
 
     function isProbablyUrl(s) { return /^https?:\/\//i.test(s) || s.startsWith('data:image/'); }
@@ -851,7 +896,7 @@
         if (err.status === 415) return `The ${action} failed due to unsupported media type. The server may expect a different field name like 'file' or 'image'.`;
         return `The ${action} failed with ${err.message}`;
       }
-      return `Network or parsing error during ${action}. The server may be returning HTML or a non-JSON body. Open the Network tab, click the upload request, and check the Response preview.`;
+      return `Network or parsing error during ${action}. The server may return empty HTML. I will now try to fetch your project by the id sent from the client. If that also fails, expose either a JSON body with { imageUrl } or a GET /api/project/:id endpoint.`;
     }
   </script>
 </body>
