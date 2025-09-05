@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Annotation Tool</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        /* Upload Page Styles */
+        .upload-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .upload-box {
+            background: white;
+            border-radius: 12px;
+            padding: 60px 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 8px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #ccc;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtext {
+            font-size: 14px;
+            color: #999;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        /* Annotation Dashboard Styles */
+        .dashboard {
+            display: none;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .back-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .project-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .version-selector {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .share-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .main-content {
+            display: flex;
+            height: calc(100vh - 73px);
+        }
+
+        .image-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-wrapper {
+            position: relative;
+            max-width: 100%;
+            max-height: 100%;
+            cursor: crosshair;
+        }
+
+        .main-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            user-select: none;
+            transition: transform 0.2s ease;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .zoom-btn {
+            background: none;
+            border: none;
+            padding: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .zoom-btn:last-child {
+            border-bottom: none;
+        }
+
+        .zoom-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .annotation-marker {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #007bff;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .annotation-marker:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .annotation-marker.active {
+            background: #dc3545;
+        }
+
+        .sidebar {
+            width: 400px;
+            background: white;
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .comment-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .tab.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .comments-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 24px 24px;
+        }
+
+        .comment-item {
+            padding: 16px 0;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+
+        .comment-item:hover {
+            background: #f8f9fa;
+            margin: 0 -16px;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .comment-item.highlighted {
+            background: #fff3cd;
+            margin: 0 -16px;
+            padding: 16px;
+            border-radius: 8px;
+            border-bottom: 1px solid #ffeaa7;
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .comment-author {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .comment-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .comment-text {
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .comment-actions {
+            display: flex;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: #007bff;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .action-btn:hover {
+            text-decoration: underline;
+        }
+
+        .reply-form, .edit-form {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .reply-input, .edit-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .reply-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .replies {
+            margin-left: 20px;
+            margin-top: 12px;
+            border-left: 2px solid #e9ecef;
+            padding-left: 16px;
+        }
+
+        .new-comment-form {
+            padding: 24px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .upload-new-version {
+            margin-top: 16px;
+            padding: 16px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-new-version:hover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Upload Page -->
+    <div id="uploadPage" class="upload-container">
+        <div class="upload-box">
+            <h1>Image Annotation Tool</h1>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drag & drop your image here</div>
+                <div class="upload-subtext">or click to browse files</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+            <button class="btn" onclick="document.getElementById('fileInput').click()">
+                Choose File
+            </button>
+        </div>
+    </div>
+
+    <!-- Annotation Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <header class="header">
+            <div class="header-left">
+                <button class="back-btn" onclick="goBack()">←</button>
+                <div class="project-title" id="projectTitle">Untitled Project</div>
+                <select class="version-selector" id="versionSelector">
+                    <option value="1">Version 1 (Current)</option>
+                </select>
+            </div>
+            <div class="header-right">
+                <div class="share-link">
+                    <span>Share:</span>
+                    <input type="text" id="shareUrl" readonly style="border: none; background: none; width: 200px;">
+                    <button class="copy-btn" onclick="copyShareLink()">Copy</button>
+                </div>
+                <div class="upload-new-version" onclick="document.getElementById('newVersionInput').click()">
+                    + Upload New Version
+                </div>
+                <input type="file" id="newVersionInput" accept="image/*" class="hidden">
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="image-container" id="imageContainer">
+                <div class="image-wrapper" id="imageWrapper">
+                    <img id="mainImage" class="main-image" alt="Main Image">
+                </div>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn()">+</button>
+                    <button class="zoom-btn" onclick="resetZoom()">⌂</button>
+                    <button class="zoom-btn" onclick="zoomOut()">−</button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">Comments</div>
+                    <div class="comment-tabs">
+                        <button class="tab active" onclick="filterComments('all')">All</button>
+                        <button class="tab" onclick="filterComments('unresolved')">Unresolved</button>
+                        <button class="tab" onclick="filterComments('resolved')">Resolved</button>
+                    </div>
+                </div>
+
+                <div class="comments-container" id="commentsContainer">
+                    <!-- Comments will be populated here -->
+                </div>
+
+                <div class="new-comment-form" id="newCommentForm" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Your Name</label>
+                        <input type="text" class="form-input" id="authorName" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Comment</label>
+                        <textarea class="form-input form-textarea" id="commentText" placeholder="Add your comment..."></textarea>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm" onclick="submitComment()">Add Comment</button>
+                        <button class="btn btn-sm btn-secondary" onclick="cancelComment()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Application state
+        let currentProject = null;
+        let currentVersion = 1;
+        let comments = {};
+        let zoomLevel = 1;
+        let isAddingComment = false;
+        let pendingCommentPosition = null;
+        let activeCommentId = null;
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadFromUrl();
+        });
+
+        function setupEventListeners() {
+            // File upload
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            const newVersionInput = document.getElementById('newVersionInput');
+
+            fileInput.addEventListener('change', handleFileUpload);
+            newVersionInput.addEventListener('change', handleNewVersionUpload);
+
+            // Drag and drop
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Image click for annotations
+            document.getElementById('imageWrapper').addEventListener('click', handleImageClick);
+
+            // Version selector
+            document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                createNewProject(file);
+            }
+        }
+
+        function handleNewVersionUpload(event) {
+            const file = event.target.files[0];
+            if (file && currentProject) {
+                addNewVersion(file);
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            const file = event.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                createNewProject(file);
+            }
+        }
+
+        function createNewProject(file) {
+            const projectId = generateProjectId();
+            currentProject = {
+                id: projectId,
+                name: file.name.replace(/\.[^/.]+$/, ""),
+                versions: [
+                    {
+                        id: 1,
+                        file: file,
+                        url: URL.createObjectURL(file),
+                        uploadDate: new Date()
+                    }
+                ]
+            };
+
+            currentVersion = 1;
+            comments[projectId] = {};
+            
+            saveProject();
+            showDashboard();
+        }
+
+        function addNewVersion(file) {
+            const newVersionId = currentProject.versions.length + 1;
+            currentProject.versions.push({
+                id: newVersionId,
+                file: file,
+                url: URL.createObjectURL(file),
+                uploadDate: new Date()
+            });
+
+            currentVersion = newVersionId;
+            saveProject();
+            updateVersionSelector();
+            loadVersion(newVersionId);
+        }
+
+        function showDashboard() {
+            document.getElementById('uploadPage').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            document.getElementById('projectTitle').textContent = currentProject.name;
+            document.getElementById('shareUrl').value = window.location.origin + window.location.pathname + '?project=' + currentProject.id;
+            
+            updateVersionSelector();
+            loadVersion(currentVersion);
+            renderComments();
+        }
+
+        function updateVersionSelector() {
+            const selector = document.getElementById('versionSelector');
+            selector.innerHTML = '';
+            
+            currentProject.versions.forEach(version => {
+                const option = document.createElement('option');
+                option.value = version.id;
+                option.textContent = `Version ${version.id}${version.id === currentProject.versions.length ? ' (Current)' : ''}`;
+                selector.appendChild(option);
+            });
+            
+            selector.value = currentVersion;
+        }
+
+        function loadVersion(versionId) {
+            const version = currentProject.versions.find(v => v.id === versionId);
+            if (version) {
+                const img = document.getElementById('mainImage');
+                img.src = version.url;
+                img.onload = () => {
+                    resetZoom();
+                    renderAnnotations();
+                };
+            }
+        }
+
+        function handleVersionChange(event) {
+            currentVersion = parseInt(event.target.value);
+            loadVersion(currentVersion);
+            renderComments();
+        }
+
+        function handleImageClick(event) {
+            if (isAddingComment) return;
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const img = document.getElementById('mainImage');
+            const imgRect = img.getBoundingClientRect();
+            
+            // Calculate position relative to the image
+            const x = ((event.clientX - imgRect.left) / imgRect.width) * 100;
+            const y = ((event.clientY - imgRect.top) / imgRect.height) * 100;
+
+            // Check if clicking outside image bounds
+            if (x < 0 || x > 100 || y < 0 || y > 100) return;
+
+            startAddingComment(x, y);
+        }
+
+        function startAddingComment(x, y) {
+            isAddingComment = true;
+            pendingCommentPosition = { x, y };
+            
+            document.getElementById('newCommentForm').style.display = 'block';
+            document.getElementById('authorName').focus();
+        }
+
+        function submitComment() {
+            const author = document.getElementById('authorName').value.trim();
+            const text = document.getElementById('commentText').value.trim();
+            
+            if (!author || !text || !pendingCommentPosition) return;
+
+            const commentId = generateCommentId();
+            const comment = {
+                id: commentId,
+                author: author,
+                text: text,
+                position: pendingCommentPosition,
+                timestamp: new Date(),
+                version: currentVersion,
+                resolved: false,
+                replies: []
+            };
+
+            if (!comments[currentProject.id]) {
+                comments[currentProject.id] = {};
+            }
+            if (!comments[currentProject.id][currentVersion]) {
+                comments[currentProject.id][currentVersion] = [];
+            }
+
+            comments[currentProject.id][currentVersion].push(comment);
+            saveProject();
+            
+            cancelComment();
+            renderComments();
+            renderAnnotations();
+        }
+
+        function cancelComment() {
+            isAddingComment = false;
+            pendingCommentPosition = null;
+            document.getElementById('newCommentForm').style.display = 'none';
+            document.getElementById('authorName').value = '';
+            document.getElementById('commentText').value = '';
+        }
+
+        function renderComments() {
+            const container = document.getElementById('commentsContainer');
+            const versionComments = comments[currentProject.id]?.[currentVersion] || [];
+            
+            if (versionComments.length === 0) {
+                container.innerHTML = '<div class="loading">No comments yet. Click on the image to add one.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            versionComments.forEach((comment, index) => {
+                const commentElement = createCommentElement(comment, index + 1);
+                container.appendChild(commentElement);
+            });
+        }
+
+        function createCommentElement(comment, number) {
+            const div = document.createElement('div');
+            div.className = 'comment-item';
+            div.dataset.commentId = comment.id;
+            
+            div.innerHTML = `
+                <div class="comment-header">
+                    <span class="comment-author">#${number} ${comment.author}</span>
+                    <span class="comment-time">${formatDate(comment.timestamp)}</span>
+                </div>
+                <div class="comment-text">${comment.text}</div>
+                <div class="comment-actions">
+                    <button class="action-btn" onclick="toggleResolve('${comment.id}')">${comment.resolved ? 'Unresolve' : 'Resolve'}</button>
+                    <button class="action-btn" onclick="showReplyForm('${comment.id}')">Reply</button>
+                    <button class="action-btn" onclick="editComment('${comment.id}')">Edit</button>
+                    <button class="action-btn" onclick="deleteComment('${comment.id}')">Delete</button>
+                </div>
+                <div class="replies" id="replies-${comment.id}"></div>
+            `;
+
+            // Add click handler to highlight annotation
+            div.addEventListener('click', () => highlightAnnotation(comment.id));
+
+            // Render replies
+            if (comment.replies && comment.replies.length > 0) {
+                const repliesContainer = div.querySelector(`#replies-${comment.id}`);
+                comment.replies.forEach(reply => {
+                    const replyElement = createReplyElement(reply, comment.id);
+                    repliesContainer.appendChild(replyElement);
+                });
+            }
+
+            return div;
+        }
+
+        function createReplyElement(reply, parentId) {
+            const div = document.createElement('div');
+            div.className = 'comment-item';
+            div.innerHTML = `
+                <div class="comment-header">
+                    <span class="comment-author">${reply.author}</span>
+                    <span class="comment-time">${formatDate(reply.timestamp)}</span>
+                </div>
+                <div class="comment-text">${reply.text}</div>
+                <div class="comment-actions">
+                    <button class="action-btn" onclick="editReply('${parentId}', '${reply.id}')">Edit</button>
+                    <button class="action-btn" onclick="deleteReply('${parentId}', '${reply.id}')">Delete</button>
+                </div>
+            `;
+            return div;
+        }
+
+        function renderAnnotations() {
+            // Remove existing markers
+            document.querySelectorAll('.annotation-marker').forEach(marker => marker.remove());
+            
+            const versionComments = comments[currentProject.id]?.[currentVersion] || [];
+            const imageWrapper = document.getElementById('imageWrapper');
+            
+            versionComments.forEach((comment, index) => {
+                const marker = document.createElement('div');
+                marker.className = 'annotation-marker';
+                marker.textContent = index + 1;
+                marker.dataset.commentId = comment.id;
+                marker.style.left = comment.position.x + '%';
+                marker.style.top = comment.position.y + '%';
+                
+                marker.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    highlightAnnotation(comment.id);
+                });
+                
+                imageWrapper.appendChild(marker);
+            });
+        }
+
+        function highlightAnnotation(commentId) {
+            // Remove previous highlights
+            document.querySelectorAll('.annotation-marker').forEach(marker => {
+                marker.classList.remove('active');
+            });
+            document.querySelectorAll('.comment-item').forEach(item => {
+                item.classList.remove('highlighted');
+            });
+
+            // Add new highlights
+            const marker = document.querySelector(`[data-comment-id="${commentId}"]`);
+            const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+            
+            if (marker) marker.classList.add('active');
+            if (commentElement) {
+                commentElement.classList.add('highlighted');
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            activeCommentId = commentId;
+        }
+
+        function toggleResolve(commentId) {
+            const versionComments = comments[currentProject.id][currentVersion];
+            const comment = versionComments.find(c => c.id === commentId);
+            if (comment) {
+                comment.resolved = !comment.resolved;
+                saveProject();
+                renderComments();
+            }
+        }
+
+        function showReplyForm(commentId) {
+            // Remove any existing reply forms
+            document.querySelectorAll('.reply-form').forEach(form => form.remove());
+            
+            const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+            const repliesContainer = commentElement.querySelector(`#replies-${commentId}`);
+            
+            const replyForm = document.createElement('div');
+            replyForm.className = 'reply-form';
+            replyForm.innerHTML = `
+                <input type="text" class="reply-input" placeholder="Your name" id="reply-author-${commentId}">
+                <textarea class="reply-input" placeholder="Your reply..." id="reply-text-${commentId}"></textarea>
+                <div class="reply-actions">
+                    <button class="btn btn-sm" onclick="submitReply('${commentId}')">Reply</button>
+                    <button class="btn btn-sm btn-secondary" onclick="cancelReply('${commentId}')">Cancel</button>
+                </div>
+            `;
+            
+            repliesContainer.appendChild(replyForm);
+            document.getElementById(`reply-author-${commentId}`).focus();
+        }
+
+        function submitReply(commentId) {
+            const author = document.getElementById(`reply-author-${commentId}`).value.trim();
+            const text = document.getElementById(`reply-text-${commentId}`).value.trim();
+            
+            if (!author || !text) return;
+
+            const versionComments = comments[currentProject.id][currentVersion];
+            const comment = versionComments.find(c => c.id === commentId);
+            
+            if (comment) {
+                if (!comment.replies) comment.replies = [];
+                comment.replies.push({
+                    id: generateCommentId(),
+                    author: author,
+                    text: text,
+                    timestamp: new Date()
+                });
+                
+                saveProject();
+                renderComments();
+                renderAnnotations();
+            }
+        }
+
+        function cancelReply(commentId) {
+            const replyForm = document.querySelector(`#replies-${commentId} .reply-form`);
+            if (replyForm) replyForm.remove();
+        }
+
+        function editComment(commentId) {
+            const versionComments = comments[currentProject.id][currentVersion];
+            const comment = versionComments.find(c => c.id === commentId);
+            const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+            const textElement = commentElement.querySelector('.comment-text');
+            
+            if (comment && textElement) {
+                const originalText = comment.text;
+                textElement.innerHTML = `
+                    <div class="edit-form">
+                        <textarea class="edit-input" id="edit-${commentId}">${originalText}</textarea>
+                        <div class="reply-actions">
+                            <button class="btn btn-sm" onclick="saveEdit('${commentId}', '${originalText}')">Save</button>
+                            <button class="btn btn-sm btn-secondary" onclick="cancelEdit('${commentId}', '${originalText}')">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById(`edit-${commentId}`).focus();
+            }
+        }
+
+        function saveEdit(commentId, originalText) {
+            const newText = document.getElementById(`edit-${commentId}`).value.trim();
+            if (!newText) return;
+
+            const versionComments = comments[currentProject.id][currentVersion];
+            const comment = versionComments.find(c => c.id === commentId);
+            
+            if (comment) {
+                comment.text = newText;
+                saveProject();
+                renderComments();
+            }
+        }
+
+        function cancelEdit(commentId, originalText) {
+            const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+            const textElement = commentElement.querySelector('.comment-text');
+            textElement.textContent = originalText;
+        }
+
+        function deleteComment(commentId) {
+            if (confirm('Are you sure you want to delete this comment?')) {
+                comments[currentProject.id][currentVersion] = comments[currentProject.id][currentVersion].filter(c => c.id !== commentId);
+                saveProject();
+                renderComments();
+                renderAnnotations();
+            }
+        }
+
+        function editReply(parentId, replyId) {
+            // Implementation similar to editComment but for replies
+            console.log('Edit reply:', parentId, replyId);
+        }
+
+        function deleteReply(parentId, replyId) {
+            if (confirm('Are you sure you want to delete this reply?')) {
+                const versionComments = comments[currentProject.id][currentVersion];
+                const comment = versionComments.find(c => c.id === parentId);
+                if (comment && comment.replies) {
+                    comment.replies = comment.replies.filter(r => r.id !== replyId);
+                    saveProject();
+                    renderComments();
+                }
+            }
+        }
+
+        function filterComments(filter) {
+            // Update tab styles
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Filter logic would go here
+            renderComments();
+        }
+
+        // Zoom functions
+        function zoomIn() {
+            zoomLevel = Math.min(zoomLevel * 1.2, 5);
+            applyZoom();
+        }
+
+        function zoomOut() {
+            zoomLevel = Math.max(zoomLevel / 1.2, 0.1);
+            applyZoom();
+        }
+
+        function resetZoom() {
+            zoomLevel = 1;
+            applyZoom();
+        }
+
+        function applyZoom() {
+            const img = document.getElementById('mainImage');
+            img.style.transform = `scale(${zoomLevel})`;
+        }
+
+        // Utility functions
+        function generateProjectId() {
+            return 'proj_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function generateCommentId() {
+            return 'comment_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleString();
+        }
+
+        function copyShareLink() {
+            const shareUrl = document.getElementById('shareUrl');
+            shareUrl.select();
+            document.execCommand('copy');
+            
+            const copyBtn = document.querySelector('.copy-btn');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 2000);
+        }
+
+        function goBack() {
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('uploadPage').style.display = 'flex';
+        }
+
+        // Storage functions
+        function saveProject() {
+            if (currentProject) {
+                const projectData = {
+                    project: currentProject,
+                    comments: comments[currentProject.id] || {}
+                };
+                localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
+            }
+        }
+
+        function loadProject(projectId) {
+            const data = localStorage.getItem('project_' + projectId);
+            if (data) {
+                const projectData = JSON.parse(data);
+                currentProject = projectData.project;
+                comments[projectId] = projectData.comments || {};
+                
+                // Recreate blob URLs for images
+                currentProject.versions.forEach(version => {
+                    if (version.file) {
+                        version.url = URL.createObjectURL(version.file);
+                    }
+                });
+                
+                return true;
+            }
+            return false;
+        }
+
+        function loadFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('project');
+            
+            if (projectId && loadProject(projectId)) {
+                currentVersion = currentProject.versions.length; // Load latest version
+                showDashboard();
+            }
+        }
+    </script>
+</body>
+</html>
