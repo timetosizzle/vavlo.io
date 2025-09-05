@@ -1066,6 +1066,10 @@
                 img.onload = () => {
                     resetZoom();
                     renderAnnotations();
+                    // Ensure image is properly sized
+                    setTimeout(() => {
+                        applyZoom();
+                    }, 100);
                 };
             }
         }
