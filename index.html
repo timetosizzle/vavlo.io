@@ -73,7 +73,7 @@
     .image-container.panning { cursor: grabbing; }
 
     .image-wrapper { position: relative; margin: 0 auto; cursor: crosshair; transform-origin: top left; display: inline-block; }
-    .main-image { max-width: none; max-height: none; object-fit: contain; user-select: none; transition: transform .1s linear; display: block; }
+    .main-image { width: 100%; height: auto; display: block; user-select: none; }
 
     .annotation-marker { position: absolute; width: 12px; height: 12px; background: var(--brand-accent); border: 2px solid var(--brand-text); border-radius: 50%; cursor: pointer; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 2px 8px var(--brand-accent-strong); transition: all .2s ease; }
     .annotation-marker:hover { transform: translate(-50%, -50%) scale(1.2); background: var(--brand-accent-hover); box-shadow: 0 4px 12px rgba(255,3,126,.6); }
@@ -147,7 +147,7 @@
         <button class="back-btn" id="backBtn">←</button>
         <div class="project-title" id="projectTitle">Untitled Project</div>
         <select class="version-selector" id="versionSelector"></select>
-        <!-- Zoom controls moved up next to version dropdown -->
+        <!-- Zoom controls next to version dropdown -->
         <div class="zoom-controls" id="zoomControls">
           <button class="zoom-btn" id="zoomOutBtn" title="Zoom out (–)">−</button>
           <button class="zoom-btn" id="zoomResetBtn" title="Reset (0)">100%</button>
@@ -205,7 +205,7 @@
     let currentProject = null;
     let currentVersion = 1;
     let comments = {};
-    let zoomLevel = 1;
+    let zoomLevel = 1; // 1 = natural size of wrapper
     let isAddingComment = false;
     let pendingCommentPosition = null;
     let activeCommentId = null;
@@ -215,7 +215,7 @@
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Config (cloud disabled by default in this version)
+    // Config (cloud disabled by default)
     const DROPBOX_CONFIG = { enabled: false };
     const SERVER_CONFIG = { enabled: false };
 
@@ -229,11 +229,7 @@
     function cacheBustLogo() {
       const logo = document.getElementById('brandLogo');
       if (!logo) return;
-      try {
-        const url = new URL(logo.src);
-        url.searchParams.set('v', Date.now().toString());
-        logo.src = url.toString();
-      } catch (_) {}
+      try { const url = new URL(logo.src); url.searchParams.set('v', Date.now().toString()); logo.src = url.toString(); } catch (_) {}
     }
 
     // ===== Event wiring =====
@@ -265,54 +261,46 @@
       // Zoom controls in header
       document.getElementById('zoomInBtn').addEventListener('click', () => zoomBy(1.2));
       document.getElementById('zoomOutBtn').addEventListener('click', () => zoomBy(1/1.2));
-      document.getElementById('zoomResetBtn').addEventListener('click', () => setZoom(1));
+      document.getElementById('zoomResetBtn').addEventListener('click', () => fitWidthZoom());
 
       // Keyboard shortcuts
       document.addEventListener('keydown', (e) => {
         if (e.key === '+') { e.preventDefault(); zoomBy(1.2); }
         if (e.key === '-') { e.preventDefault(); zoomBy(1/1.2); }
-        if (e.key === '0') { e.preventDefault(); setZoom(1); }
+        if (e.key === '0') { e.preventDefault(); fitWidthZoom(); }
       });
 
       // Spacebar to pan
       document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !isSpacePressed) {
-          e.preventDefault();
-          isSpacePressed = true;
-          imageContainer.classList.add('space-ready');
+          e.preventDefault(); isSpacePressed = true; imageContainer.classList.add('space-ready');
         }
       });
       document.addEventListener('keyup', (e) => {
         if (e.code === 'Space') {
-          isSpacePressed = false;
-          imageContainer.classList.remove('space-ready');
+          isSpacePressed = false; imageContainer.classList.remove('space-ready');
           if (isDragging) { isDragging = false; imageContainer.classList.remove('panning'); }
         }
       });
       imageContainer.addEventListener('mousedown', (e) => {
         if (!isSpacePressed) return;
-        isDragging = true;
-        imageContainer.classList.add('panning');
+        isDragging = true; imageContainer.classList.add('panning');
         dragStart = { x: e.clientX, y: e.clientY, scrollLeft: imageContainer.scrollLeft, scrollTop: imageContainer.scrollTop };
         e.preventDefault();
       });
       document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        const dx = e.clientX - dragStart.x;
-        const dy = e.clientY - dragStart.y;
-        imageContainer.scrollLeft = dragStart.scrollLeft - dx;
-        imageContainer.scrollTop = dragStart.scrollTop - dy;
+        const dx = e.clientX - dragStart.x; const dy = e.clientY - dragStart.y;
+        imageContainer.scrollLeft = dragStart.scrollLeft - dx; imageContainer.scrollTop = dragStart.scrollTop - dy;
       });
       document.addEventListener('mouseup', () => {
         if (isDragging) { isDragging = false; imageContainer.classList.remove('panning'); }
       });
 
-      // Ctrl/Meta + wheel zoom
+      // Ctrl/Meta + wheel zoom around cursor
       imageContainer.addEventListener('wheel', (e) => {
         if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          const factor = e.deltaY > 0 ? 1/1.1 : 1.1;
-          zoomBy(factor, { x: e.clientX, y: e.clientY });
+          e.preventDefault(); const factor = e.deltaY > 0 ? 1/1.1 : 1.1; zoomBy(factor, { x: e.clientX, y: e.clientY });
         }
       }, { passive: false });
 
@@ -327,6 +315,9 @@
       document.getElementById('cancelCommentBtn').addEventListener('click', cancelComment);
 
       backBtn.addEventListener('click', goBack);
+
+      // Handle resize to keep fit-width honest when user wants it
+      window.addEventListener('resize', () => { if (document.getElementById('dashboard').style.display === 'block') fitWidthZoom(); });
     }
 
     // ===== Upload / Versions =====
@@ -339,19 +330,13 @@
     function createNewProject(file) {
       const projectId = generateProjectId();
       currentProject = { id: projectId, name: file.name.replace(/\.[^/.]+$/, ''), versions: [ { id: 1, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name } ] };
-      currentVersion = 1;
-      comments[projectId] = {};
-      saveProject();
-      showDashboard();
+      currentVersion = 1; comments[projectId] = {}; saveProject(); showDashboard();
     }
 
     function addNewVersion(file) {
       const newVersionId = currentProject.versions.length + 1;
       currentProject.versions.push({ id: newVersionId, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name });
-      currentVersion = newVersionId;
-      saveProject();
-      updateVersionSelector();
-      loadVersion(newVersionId);
+      currentVersion = newVersionId; saveProject(); updateVersionSelector(); loadVersion(newVersionId);
     }
 
     // ===== UI render =====
@@ -370,8 +355,7 @@
       selector.innerHTML = '';
       currentProject.versions.forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v.id;
-        opt.textContent = `Version ${v.id}${v.id === currentProject.versions.length ? ' (Current)' : ''}`;
+        opt.value = v.id; opt.textContent = `v${v.id}`; // as requested
         selector.appendChild(opt);
       });
       selector.value = currentVersion;
@@ -381,8 +365,15 @@
       const version = currentProject.versions.find(v => v.id === versionId);
       if (!version) return;
       const img = document.getElementById('mainImage');
+      const wrap = document.getElementById('imageWrapper');
+      img.onload = () => {
+        // Size wrapper to the image's natural size so markers align, then fit to width
+        wrap.style.width = img.naturalWidth + 'px';
+        wrap.style.height = img.naturalHeight + 'px';
+        renderAnnotations();
+        fitWidthZoom();
+      };
       img.src = version.url;
-      img.onload = () => { setZoom(1); renderAnnotations(); };
     }
 
     function handleVersionChange(e) { currentVersion = parseInt(e.target.value, 10); loadVersion(currentVersion); renderComments(); }
@@ -390,17 +381,16 @@
     // ===== Comments =====
     function handleImageClick(e) {
       if (isAddingComment || isDragging || isSpacePressed) return;
-      const img = document.getElementById('mainImage');
-      const imgRect = img.getBoundingClientRect();
-      const x = ((e.clientX - imgRect.left) / imgRect.width) * 100;
-      const y = ((e.clientY - imgRect.top) / imgRect.height) * 100;
+      const wrap = document.getElementById('imageWrapper');
+      const rect = wrap.getBoundingClientRect(); // use wrapper rect so zoom doesn't skew math
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
       if (x < 0 || x > 100 || y < 0 || y > 100) return;
       startAddingComment(x, y);
     }
 
     function startAddingComment(x, y) {
-      isAddingComment = true;
-      pendingCommentPosition = { x, y };
+      isAddingComment = true; pendingCommentPosition = { x, y };
       document.getElementById('newCommentForm').style.display = 'block';
       document.getElementById('authorName').focus();
       showPendingMarker();
@@ -408,11 +398,8 @@
 
     function showPendingMarker() {
       removePendingMarker();
-      const marker = document.createElement('div');
-      marker.id = 'pendingMarker';
-      marker.className = 'annotation-marker pending';
-      marker.style.left = pendingCommentPosition.x + '%';
-      marker.style.top = pendingCommentPosition.y + '%';
+      const marker = document.createElement('div'); marker.id = 'pendingMarker'; marker.className = 'annotation-marker pending';
+      marker.style.left = pendingCommentPosition.x + '%'; marker.style.top = pendingCommentPosition.y + '%';
       document.getElementById('imageWrapper').appendChild(marker);
     }
 
@@ -427,10 +414,7 @@
       if (!comments[currentProject.id]) comments[currentProject.id] = {};
       if (!comments[currentProject.id][currentVersion]) comments[currentProject.id][currentVersion] = [];
       comments[currentProject.id][currentVersion].push(comment);
-      saveProject();
-      cancelComment();
-      renderComments();
-      renderAnnotations();
+      saveProject(); cancelComment(); renderComments(); renderAnnotations();
     }
 
     function cancelComment() {
@@ -443,20 +427,14 @@
     function renderComments() {
       const container = document.getElementById('commentsContainer');
       const filter = document.querySelector('.tab.active')?.dataset.filter || 'all';
-      const arr = (comments[currentProject.id]?.[currentVersion] || []).filter(c => {
-        if (filter === 'resolved') return c.resolved;
-        if (filter === 'unresolved') return !c.resolved;
-        return true;
-      });
+      const arr = (comments[currentProject.id]?.[currentVersion] || []).filter(c => filter === 'resolved' ? c.resolved : filter === 'unresolved' ? !c.resolved : true);
       if (arr.length === 0) { container.innerHTML = '<div class="upload-subtext" style="padding:24px 0;">No comments yet. Click on the image to add one.</div>'; return; }
       container.innerHTML = '';
       arr.forEach((c, idx) => container.appendChild(createCommentElement(c, idx + 1)));
     }
 
     function createCommentElement(comment, number) {
-      const div = document.createElement('div');
-      div.className = 'comment-item';
-      div.dataset.commentId = comment.id;
+      const div = document.createElement('div'); div.className = 'comment-item'; div.dataset.commentId = comment.id;
       div.innerHTML = `
         <div class="comment-header">
           <span class="comment-author"><span class="comment-number">#${number}</span> ${escapeHtml(comment.author)}</span>
@@ -469,30 +447,21 @@
           <button class="action-btn" data-action="edit">Edit</button>
           <button class="action-btn" data-action="delete">Delete</button>
         </div>
-        <div class="replies" id="replies-${comment.id}"></div>
-      `;
+        <div class="replies" id="replies-${comment.id}"></div>`;
       div.addEventListener('click', (e) => {
-        const action = e.target?.dataset?.action;
-        if (action) {
-          e.stopPropagation();
-          if (action === 'toggle') toggleResolve(comment.id);
-          if (action === 'reply') showReplyForm(comment.id);
-          if (action === 'edit') editComment(comment.id);
-          if (action === 'delete') deleteComment(comment.id);
-          return;
-        }
-        highlightAnnotation(comment.id);
+        const action = e.target?.dataset?.action; if (!action) { highlightAnnotation(comment.id); return; }
+        e.stopPropagation();
+        if (action === 'toggle') toggleResolve(comment.id);
+        if (action === 'reply') showReplyForm(comment.id);
+        if (action === 'edit') editComment(comment.id);
+        if (action === 'delete') deleteComment(comment.id);
       });
-      if (comment.replies?.length) {
-        const repliesContainer = div.querySelector(`#replies-${comment.id}`);
-        comment.replies.forEach(r => repliesContainer.appendChild(createReplyElement(comment.id, r)));
-      }
+      if (comment.replies?.length) { const repliesContainer = div.querySelector(`#replies-${comment.id}`); comment.replies.forEach(r => repliesContainer.appendChild(createReplyElement(comment.id, r))); }
       return div;
     }
 
     function createReplyElement(parentId, reply) {
-      const div = document.createElement('div');
-      div.className = 'comment-item';
+      const div = document.createElement('div'); div.className = 'comment-item';
       div.innerHTML = `
         <div class="comment-header">
           <span class="comment-author">${escapeHtml(reply.author)}</span>
@@ -502,11 +471,9 @@
         <div class="comment-actions">
           <button class="action-btn" data-action="edit-reply" data-reply="${reply.id}">Edit</button>
           <button class="action-btn" data-action="delete-reply" data-reply="${reply.id}">Delete</button>
-        </div>
-      `;
+        </div>`;
       div.addEventListener('click', (e) => {
-        const action = e.target?.dataset?.action; const rid = e.target?.dataset?.reply;
-        if (!action) return; e.stopPropagation();
+        const action = e.target?.dataset?.action; const rid = e.target?.dataset?.reply; if (!action) return; e.stopPropagation();
         if (action === 'edit-reply') editReply(parentId, rid);
         if (action === 'delete-reply') deleteReply(parentId, rid);
       });
@@ -518,11 +485,8 @@
       const arr = comments[currentProject.id]?.[currentVersion] || [];
       const wrap = document.getElementById('imageWrapper');
       arr.forEach((c) => {
-        const marker = document.createElement('div');
-        marker.className = 'annotation-marker';
-        marker.dataset.commentId = c.id;
-        marker.style.left = c.position.x + '%';
-        marker.style.top = c.position.y + '%';
+        const marker = document.createElement('div'); marker.className = 'annotation-marker'; marker.dataset.commentId = c.id;
+        marker.style.left = c.position.x + '%'; marker.style.top = c.position.y + '%';
         marker.title = `${c.author}: ${c.text.substring(0, 50)}${c.text.length > 50 ? '...' : ''}`;
         marker.addEventListener('click', (e) => { e.stopPropagation(); highlightAnnotation(c.id); });
         wrap.appendChild(marker);
@@ -540,28 +504,21 @@
     }
 
     function toggleResolve(commentId) {
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      if (!c) return;
-      c.resolved = !c.resolved;
-      saveProject();
-      renderComments();
+      const arr = comments[currentProject.id][currentVersion]; const c = arr.find(x => x.id === commentId); if (!c) return;
+      c.resolved = !c.resolved; saveProject(); renderComments();
     }
 
     function showReplyForm(commentId) {
       document.querySelectorAll('.reply-form').forEach(f => f.remove());
-      const commentEl = document.querySelector(`.comment-item[data-comment-id="${commentId}"]`);
-      const repliesContainer = commentEl.querySelector(`#replies-${commentId}`);
-      const replyForm = document.createElement('div');
-      replyForm.className = 'reply-form';
+      const repliesContainer = document.querySelector(`#replies-${commentId}`);
+      const replyForm = document.createElement('div'); replyForm.className = 'reply-form';
       replyForm.innerHTML = `
         <input type="text" class="reply-input" placeholder="Your name" id="reply-author-${commentId}" />
         <textarea class="reply-input" placeholder="Your reply..." id="reply-text-${commentId}"></textarea>
         <div class="reply-actions">
           <button class="btn btn-sm" data-action="save-reply">Reply</button>
           <button class="btn btn-sm btn-secondary" data-action="cancel-reply">Cancel</button>
-        </div>
-      `;
+        </div>`;
       repliesContainer.appendChild(replyForm);
       replyForm.querySelector('[data-action="save-reply"]').addEventListener('click', () => submitReply(commentId));
       replyForm.querySelector('[data-action="cancel-reply"]').addEventListener('click', () => cancelReply(commentId));
@@ -572,24 +529,18 @@
       const author = document.getElementById(`reply-author-${commentId}`).value.trim();
       const text = document.getElementById(`reply-text-${commentId}`).value.trim();
       if (!author || !text) return;
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      if (!c) return;
+      const arr = comments[currentProject.id][currentVersion]; const c = arr.find(x => x.id === commentId); if (!c) return;
       if (!c.replies) c.replies = [];
       c.replies.push({ id: generateCommentId(), author, text, timestamp: new Date() });
-      saveProject();
-      renderComments();
-      renderAnnotations();
+      saveProject(); renderComments(); renderAnnotations();
     }
 
     function cancelReply(commentId) { const f = document.querySelector(`#replies-${commentId} .reply-form`); if (f) f.remove(); }
 
     function editComment(commentId) {
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
+      const arr = comments[currentProject.id][currentVersion]; const c = arr.find(x => x.id === commentId);
       const el = document.querySelector(`.comment-item[data-comment-id="${commentId}"] .comment-text`);
-      if (!c || !el) return;
-      const original = c.text;
+      if (!c || !el) return; const original = c.text;
       el.innerHTML = `
         <div class="edit-form">
           <textarea class="edit-input" id="edit-${commentId}">${escapeHtml(original)}</textarea>
@@ -604,67 +555,58 @@
     }
 
     function saveEdit(commentId) {
-      const val = document.getElementById(`edit-${commentId}`).value.trim();
-      if (!val) return;
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      if (!c) return;
-      c.text = val;
-      saveProject();
-      renderComments();
+      const val = document.getElementById(`edit-${commentId}`).value.trim(); if (!val) return;
+      const arr = comments[currentProject.id][currentVersion]; const c = arr.find(x => x.id === commentId); if (!c) return;
+      c.text = val; saveProject(); renderComments();
     }
 
-    function cancelEdit(commentId, originalText) {
-      const el = document.querySelector(`.comment-item[data-comment-id="${commentId}"] .comment-text`);
-      if (el) el.textContent = originalText;
-    }
+    function cancelEdit(commentId, originalText) { const el = document.querySelector(`.comment-item[data-comment-id="${commentId}"] .comment-text`); if (el) el.textContent = originalText; }
 
     function deleteComment(commentId) {
       if (!confirm('Delete this comment?')) return;
       comments[currentProject.id][currentVersion] = comments[currentProject.id][currentVersion].filter(c => c.id !== commentId);
-      saveProject();
-      renderComments();
-      renderAnnotations();
+      saveProject(); renderComments(); renderAnnotations();
     }
 
     function editReply(parentId, replyId) { console.log('Edit reply', parentId, replyId); }
 
     function deleteReply(parentId, replyId) {
       if (!confirm('Delete this reply?')) return;
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === parentId);
-      if (!c?.replies) return;
-      c.replies = c.replies.filter(r => r.id !== replyId);
-      saveProject();
-      renderComments();
+      const arr = comments[currentProject.id][currentVersion]; const c = arr.find(x => x.id === parentId); if (!c?.replies) return;
+      c.replies = c.replies.filter(r => r.id !== replyId); saveProject(); renderComments();
     }
 
-    function filterComments(evt) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      evt.currentTarget.classList.add('active');
-      renderComments();
-    }
+    function filterComments(evt) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); evt.currentTarget.classList.add('active'); renderComments(); }
 
     // ===== Zoom =====
-    function zoomBy(factor, pivot) { setZoom(clamp(zoomLevel * factor, 0.1, 5), pivot); }
+    function zoomBy(factor, pivot) { setZoom(clamp(zoomLevel * factor, 0.05, 10), pivot); }
+
+    function fitWidthZoom() {
+      const container = document.getElementById('imageContainer');
+      const wrap = document.getElementById('imageWrapper');
+      const baseWidth = wrap.offsetWidth || 1; // wrapper sized to natural width
+      const available = container.clientWidth - 24; // small padding buffer
+      const scale = available / baseWidth;
+      setZoom(scale > 0 ? scale : 1);
+    }
+
     function setZoom(level, pivot) {
-      const img = document.getElementById('mainImage');
       const wrap = document.getElementById('imageWrapper');
       const container = document.getElementById('imageContainer');
-      const prev = zoomLevel;
-      zoomLevel = level;
-      // Maintain apparent pivot by adjusting scroll when zooming with wheel
+      const prev = zoomLevel; zoomLevel = level;
+      // Keep the pointer position stable when zooming with wheel
       if (pivot) {
         const rect = wrap.getBoundingClientRect();
-        const cx = pivot.x - rect.left + container.scrollLeft;
-        const cy = pivot.y - rect.top + container.scrollTop;
+        const offX = pivot.x - rect.left + container.scrollLeft;
+        const offY = pivot.y - rect.top + container.scrollTop;
         const scale = zoomLevel / prev;
-        container.scrollLeft = (cx * scale) - (pivot.x - rect.left);
-        container.scrollTop  = (cy * scale) - (pivot.y - rect.top);
+        container.scrollLeft = (offX * scale) - (pivot.x - rect.left);
+        container.scrollTop  = (offY * scale) - (pivot.y - rect.top);
       }
-      img.style.transform = `scale(${zoomLevel})`;
+      wrap.style.transform = `scale(${zoomLevel})`;
       document.getElementById('zoomResetBtn').textContent = `${Math.round(zoomLevel * 100)}%`;
     }
+
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
     // ===== Share =====
@@ -672,37 +614,16 @@
       const input = document.getElementById('shareUrl');
       try { await navigator.clipboard.writeText(input.value); }
       catch { input.select(); document.execCommand('copy'); }
-      const btn = document.getElementById('copyBtn');
-      const t = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = t, 1500);
+      const btn = document.getElementById('copyBtn'); const t = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = t, 1500);
     }
 
     // ===== Nav =====
-    function goBack() {
-      document.getElementById('dashboard').style.display = 'none';
-      document.getElementById('uploadPage').style.display = 'flex';
-    }
+    function goBack() { document.getElementById('dashboard').style.display = 'none'; document.getElementById('uploadPage').style.display = 'flex'; }
 
     // ===== Storage =====
-    function saveProject() {
-      if (!currentProject) return;
-      const data = { project: currentProject, comments: comments[currentProject.id] || {} };
-      localStorage.setItem('project_' + currentProject.id, JSON.stringify(data));
-    }
-
-    function loadProject(projectId) {
-      const raw = localStorage.getItem('project_' + projectId);
-      if (!raw) return false;
-      const data = JSON.parse(raw);
-      currentProject = data.project; comments[projectId] = data.comments || {};
-      currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); });
-      return true;
-    }
-
-    function loadFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const pid = params.get('project');
-      if (pid && loadProject(pid)) { currentVersion = currentProject.versions.length; showDashboard(); }
-    }
+    function saveProject() { if (!currentProject) return; const data = { project: currentProject, comments: comments[currentProject.id] || {} }; localStorage.setItem('project_' + currentProject.id, JSON.stringify(data)); }
+    function loadProject(projectId) { const raw = localStorage.getItem('project_' + projectId); if (!raw) return false; const data = JSON.parse(raw); currentProject = data.project; comments[projectId] = data.comments || {}; currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); }); return true; }
+    function loadFromUrl() { const params = new URLSearchParams(window.location.search); const pid = params.get('project'); if (pid && loadProject(pid)) { currentVersion = currentProject.versions.length; showDashboard(); } }
 
     // ===== Utils =====
     function generateProjectId() { return 'proj_' + Math.random().toString(36).slice(2, 11); }
