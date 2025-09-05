@@ -59,7 +59,7 @@
     .zoom-btn:last-child { border-right: none; }
     .zoom-btn:hover { background: var(--brand-accent-light); }
 
-    .header-right { display: flex; align-items: center; gap: 16px; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
     .share-link { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: transparent; border: 1px solid var(--brand-border-strong); border-radius: 6px; font-size: 14px; color: var(--brand-text); }
     .share-input { background: transparent; border: none; color: var(--brand-text); outline: none; width: 260px; font-size: 14px; }
     .copy-btn { background: var(--brand-accent); color: var(--brand-text); border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all .3s ease; }
@@ -115,11 +115,12 @@
     .form-input::placeholder { color: rgba(255,255,255,0.5); }
     .form-textarea { min-height: 80px; resize: vertical; }
 
-    @keyframes pulse {
-      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
-      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    }
+    /* Help modal */
+    .help-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 1000; }
+    .help-card { width: min(820px, 92vw); max-height: 82vh; overflow: auto; background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); padding: 24px; }
+    .help-card h2 { margin-bottom: 12px; font-size: 20px; }
+    .help-card ul { margin-left: 20px; line-height: 1.6; }
+    .help-actions { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
   </style>
 </head>
 <body>
@@ -127,7 +128,6 @@
   <div id="uploadPage" class="upload-container">
     <div class="upload-box">
       <div class="logo-container">
-        <!-- Cache-buster added so same-name swaps show immediately -->
         <img id="brandLogo" src="https://raw.githubusercontent.com/timetosizzle/vavlo.io/main/Vavlo%20-%20logo-%20white%401000x.png" alt="Vavlo Logo" class="logo" />
       </div>
       <div class="upload-area" id="uploadArea">
@@ -147,7 +147,6 @@
         <button class="back-btn" id="backBtn">←</button>
         <div class="project-title" id="projectTitle">Untitled Project</div>
         <select class="version-selector" id="versionSelector"></select>
-        <!-- Zoom controls next to version dropdown -->
         <div class="zoom-controls" id="zoomControls">
           <button class="zoom-btn" id="zoomOutBtn" title="Zoom out (–)">−</button>
           <button class="zoom-btn" id="zoomResetBtn" title="Reset (0)">100%</button>
@@ -160,6 +159,7 @@
           <input type="text" id="shareUrl" class="share-input" readonly />
           <button class="copy-btn" id="copyBtn">Copy</button>
         </div>
+        <button class="btn btn-secondary" id="helpBtn">Help</button>
         <label class="btn btn-secondary" for="newVersionInput">+ Upload New Version</label>
         <input type="file" id="newVersionInput" accept="image/*" class="hidden" />
       </div>
@@ -200,12 +200,31 @@
     </div>
   </div>
 
+  <!-- Help Modal -->
+  <div id="helpModal" class="help-modal" aria-hidden="true">
+    <div class="help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">Quick help</h2>
+      <ul>
+        <li>Zoom: + or - keys, Ctrl or Cmd + mouse wheel, or the + and - in the header.</li>
+        <li>Reset zoom: 0 key or the percent button. Default is fit to width.</li>
+        <li>Pan: hold Space, then click and drag in the image area.</li>
+        <li>Add comment dot: click the image. The dot lands exactly where you click at any zoom.</li>
+        <li>Tabs: filter All, Unresolved, or Resolved.</li>
+        <li>Share: use the Copy button to copy the share URL.</li>
+      </ul>
+      <div class="help-actions">
+        <button class="btn btn-secondary" id="closeHelpBtn">Close</button>
+        <button class="btn" id="gotItBtn">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ===== State =====
     let currentProject = null;
     let currentVersion = 1;
     let comments = {};
-    let zoomLevel = 1; // 1 = natural size of wrapper
+    let zoomLevel = 1; // wrapper scale factor
     let isAddingComment = false;
     let pendingCommentPosition = null;
     let activeCommentId = null;
@@ -215,7 +234,7 @@
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Config (cloud disabled by default)
+    // Config (cloud disabled)
     const DROPBOX_CONFIG = { enabled: false };
     const SERVER_CONFIG = { enabled: false };
 
@@ -242,6 +261,7 @@
       const copyBtn = document.getElementById('copyBtn');
       const imageWrapper = document.getElementById('imageWrapper');
       const imageContainer = document.getElementById('imageContainer');
+      const helpBtn = document.getElementById('helpBtn');
 
       // File
       chooseBtn.addEventListener('click', () => fileInput.click());
@@ -254,6 +274,10 @@
 
       // Image click for annotations
       imageWrapper.addEventListener('click', handleImageClick);
+
+      // Also attach pan start on both wrapper and container for reliability
+      imageContainer.addEventListener('mousedown', maybeStartPan);
+      imageWrapper.addEventListener('mousedown', maybeStartPan);
 
       // Version selector
       document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
@@ -270,23 +294,19 @@
         if (e.key === '0') { e.preventDefault(); fitWidthZoom(); }
       });
 
-      // Spacebar to pan
+      // Spacebar to pan - support both e.code and e.key for compatibility
       document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && !isSpacePressed) {
+        const ae = document.activeElement;
+        const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+        if ((e.code === 'Space' || e.key === ' ') && !isSpacePressed && !typing) {
           e.preventDefault(); isSpacePressed = true; imageContainer.classList.add('space-ready');
         }
       });
       document.addEventListener('keyup', (e) => {
-        if (e.code === 'Space') {
+        if (e.code === 'Space' || e.key === ' ') {
           isSpacePressed = false; imageContainer.classList.remove('space-ready');
           if (isDragging) { isDragging = false; imageContainer.classList.remove('panning'); }
         }
-      });
-      imageContainer.addEventListener('mousedown', (e) => {
-        if (!isSpacePressed) return;
-        isDragging = true; imageContainer.classList.add('panning');
-        dragStart = { x: e.clientX, y: e.clientY, scrollLeft: imageContainer.scrollLeft, scrollTop: imageContainer.scrollTop };
-        e.preventDefault();
       });
       document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
@@ -299,9 +319,7 @@
 
       // Ctrl/Meta + wheel zoom around cursor
       imageContainer.addEventListener('wheel', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault(); const factor = e.deltaY > 0 ? 1/1.1 : 1.1; zoomBy(factor, { x: e.clientX, y: e.clientY });
-        }
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); const factor = e.deltaY > 0 ? 1/1.1 : 1.1; zoomBy(factor, { x: e.clientX, y: e.clientY }); }
       }, { passive: false });
 
       // Tabs
@@ -316,8 +334,23 @@
 
       backBtn.addEventListener('click', goBack);
 
-      // Handle resize to keep fit-width honest when user wants it
+      // Help modal events
+      helpBtn.addEventListener('click', showHelpGuide);
+      document.getElementById('closeHelpBtn').addEventListener('click', hideHelpGuide);
+      document.getElementById('gotItBtn').addEventListener('click', hideHelpGuide);
+      document.getElementById('helpModal').addEventListener('click', (ev) => { if (ev.target.id === 'helpModal') hideHelpGuide(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideHelpGuide(); });
+
+      // Keep fit to width on resize
       window.addEventListener('resize', () => { if (document.getElementById('dashboard').style.display === 'block') fitWidthZoom(); });
+    }
+
+    function maybeStartPan(e) {
+      const imageContainer = document.getElementById('imageContainer');
+      if (!isSpacePressed) return;
+      isDragging = true; imageContainer.classList.add('panning');
+      dragStart = { x: e.clientX, y: e.clientY, scrollLeft: imageContainer.scrollLeft, scrollTop: imageContainer.scrollTop };
+      e.preventDefault();
     }
 
     // ===== Upload / Versions =====
@@ -355,7 +388,7 @@
       selector.innerHTML = '';
       currentProject.versions.forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v.id; opt.textContent = `v${v.id}`; // as requested
+        opt.value = v.id; opt.textContent = `v${v.id}`;
         selector.appendChild(opt);
       });
       selector.value = currentVersion;
@@ -367,7 +400,6 @@
       const img = document.getElementById('mainImage');
       const wrap = document.getElementById('imageWrapper');
       img.onload = () => {
-        // Size wrapper to the image's natural size so markers align, then fit to width
         wrap.style.width = img.naturalWidth + 'px';
         wrap.style.height = img.naturalHeight + 'px';
         renderAnnotations();
@@ -382,7 +414,7 @@
     function handleImageClick(e) {
       if (isAddingComment || isDragging || isSpacePressed) return;
       const wrap = document.getElementById('imageWrapper');
-      const rect = wrap.getBoundingClientRect(); // use wrapper rect so zoom doesn't skew math
+      const rect = wrap.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
       if (x < 0 || x > 100 || y < 0 || y > 100) return;
@@ -594,7 +626,7 @@
       const wrap = document.getElementById('imageWrapper');
       const container = document.getElementById('imageContainer');
       const prev = zoomLevel; zoomLevel = level;
-      // Keep the pointer position stable when zooming with wheel
+      // Keep the pointer position stable when zooming with wheel by adjusting scroll
       if (pivot) {
         const rect = wrap.getBoundingClientRect();
         const offX = pivot.x - rect.left + container.scrollLeft;
@@ -616,6 +648,10 @@
       catch { input.select(); document.execCommand('copy'); }
       const btn = document.getElementById('copyBtn'); const t = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = t, 1500);
     }
+
+    // ===== Help =====
+    function showHelpGuide() { const m = document.getElementById('helpModal'); m.style.display = 'flex'; m.setAttribute('aria-hidden', 'false'); }
+    function hideHelpGuide() { const m = document.getElementById('helpModal'); m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); }
 
     // ===== Nav =====
     function goBack() { document.getElementById('dashboard').style.display = 'none'; document.getElementById('uploadPage').style.display = 'flex'; }
