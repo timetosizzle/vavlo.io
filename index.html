@@ -599,7 +599,7 @@
             <div class="header-right">
                 <div class="share-link">
                     <span>Share:</span>
-                    <input type="text" id="shareUrl" readonly style="border: none; background: none; width: 200px;">
+                    <input type="text" id="shareUrl" readonly>
                     <button class="copy-btn" onclick="copyShareLink()">Copy</button>
                 </div>
                 <div class="upload-new-version" onclick="document.getElementById('newVersionInput').click()">
@@ -613,11 +613,6 @@
             <div class="image-container" id="imageContainer">
                 <div class="image-wrapper" id="imageWrapper">
                     <img id="mainImage" class="main-image" alt="Main Image">
-                </div>
-                <div class="zoom-controls">
-                    <button class="zoom-btn" onclick="zoomIn()">+</button>
-                    <button class="zoom-btn" onclick="resetZoom()">⌂</button>
-                    <button class="zoom-btn" onclick="zoomOut()">−</button>
                 </div>
             </div>
 
@@ -1082,7 +1077,8 @@
         }
 
         function handleImageClick(event) {
-            if (isAddingComment) return;
+            // Don't add comments while dragging, if spacebar is pressed, or during panning
+            if (isAddingComment || isDragging || isSpacePressed) return;
 
             const rect = event.currentTarget.getBoundingClientRect();
             const img = document.getElementById('mainImage');
@@ -1624,6 +1620,30 @@
                 showDashboard();
             }
         }
+
+        // Help guide functions
+        function showHelpGuide() {
+            document.getElementById('helpModal').style.display = 'flex';
+        }
+
+        function hideHelpGuide() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // Close help modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target === modal) {
+                hideHelpGuide();
+            }
+        });
+
+        // Close help modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                hideHelpGuide();
+            }
+        });
     </script>
 </body>
 </html>
