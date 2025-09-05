@@ -3,7 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Image Annotation Tool</title>
+  <title>Vavlo: Image Annotation Tool</title>
+ 
+  <!-- Favicons -->
+<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-title" content="Vavlo" />
+<link rel="manifest" href="/site.webmanifest" />
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#ff037e">
+<meta name="theme-color" content="#02042b">
+
   <style>
     :root {
       --brand-background: #02042b;
@@ -129,6 +140,7 @@
     }
   </style>
 </head>
+</script>
 <body>
   <!-- Upload Page -->
   <div id="uploadPage" class="upload-container">
@@ -252,16 +264,7 @@
     let isSpacePressed = false;
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
-
-    // Online only via your API
-    const SERVER_CONFIG = {
-      enabled: true,
-      uploadUrl: '/api/upload',
-      projectUrl: '/api/project',
-      imageFieldName: 'image', // try 'file' if your backend expects it
-      useCredentials: true,    // include cookies for auth or CSRF
-      extraHeaders: {}         // add custom headers like {'X-CSRF-Token': '...'}
-    };
+    
 
     // ===== Init =====
     document.addEventListener('DOMContentLoaded', () => {
