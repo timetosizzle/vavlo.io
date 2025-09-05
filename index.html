@@ -121,6 +121,12 @@
     .help-card h2 { margin-bottom: 12px; font-size: 20px; }
     .help-card ul { margin-left: 20px; line-height: 1.6; }
     .help-actions { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
+
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -234,12 +240,12 @@
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Online only via your API. Extra switches added to help with server setups.
+    // Online only via your API
     const SERVER_CONFIG = {
       enabled: true,
       uploadUrl: '/api/upload',
       projectUrl: '/api/project',
-      imageFieldName: 'image', // try 'file' on some backends
+      imageFieldName: 'image', // try 'file' if your backend expects it
       useCredentials: true,    // include cookies for auth or CSRF
       extraHeaders: {}         // add custom headers like {'X-CSRF-Token': '...'}
     };
@@ -693,22 +699,25 @@
           headers: { ...SERVER_CONFIG.extraHeaders }
         });
         if (!res.ok) throw await httpError(res);
-        const result = await res.json();
+        const parsed = await parseOkResponse(res);
+        if (!parsed) throw new Error('Upload succeeded but response format was not recognized.');
 
+        // prefer server-provided id if present
+        const finalProjectId = parsed.projectId || projectId;
         currentProject = {
-          id: projectId,
-          name: result.projectName || file.name.replace(/\.[^/.]+$/, ''),
+          id: finalProjectId,
+          name: parsed.projectName || file.name.replace(/\.[^/.]+$/, ''),
           versions: [
             {
               id: 1,
-              url: result.imageUrl,
-              uploadDate: new Date(result.uploadDate || Date.now()),
-              filename: result.filename || file.name
+              url: parsed.imageUrl,
+              uploadDate: new Date(parsed.uploadDate || Date.now()),
+              filename: parsed.filename || file.name
             }
           ]
         };
         currentVersion = 1;
-        comments[projectId] = {};
+        comments[finalProjectId] = {};
         showDashboard();
         saveProject();
       } catch (err) {
@@ -727,9 +736,10 @@
           headers: { ...SERVER_CONFIG.extraHeaders }
         });
         if (!res.ok) throw await httpError(res);
-        const result = await res.json();
+        const parsed = await parseOkResponse(res);
+        if (!parsed) throw new Error('Version upload succeeded but response format was not recognized.');
 
-        currentProject.versions.push({ id: newVersionId, url: result.imageUrl, uploadDate: new Date(result.uploadDate || Date.now()), filename: result.filename || file.name });
+        currentProject.versions.push({ id: newVersionId, url: parsed.imageUrl, uploadDate: new Date(parsed.uploadDate || Date.now()), filename: parsed.filename || file.name });
         currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId); saveProject();
       } catch (err) {
         console.error('Version upload error:', err);
@@ -793,6 +803,38 @@
       return fd;
     }
 
+    // Parse OK responses even if the server returns text or a bare URL
+    async function parseOkResponse(res) {
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      try {
+        if (ct.includes('application/json')) {
+          const data = await res.json();
+          return normalizeUploadResult(data);
+        }
+        const text = await res.text();
+        console.debug('Upload response (text):', text.slice(0, 200));
+        if (isProbablyUrl(text.trim())) return { imageUrl: text.trim() };
+        try { const maybe = JSON.parse(text); return normalizeUploadResult(maybe); } catch {}
+        throw new Error('OK response but not JSON. Body preview: ' + text.slice(0, 160));
+      } catch (e) {
+        throw e;
+      }
+    }
+
+    function normalizeUploadResult(obj) {
+      if (!obj) return null;
+      if (typeof obj === 'string' && isProbablyUrl(obj)) return { imageUrl: obj };
+      const imageUrl = obj.imageUrl || obj.url || obj.link || (obj.data && (obj.data.imageUrl || obj.data.url || obj.data.link));
+      const projectId = obj.projectId || (obj.project && obj.project.id);
+      const projectName = obj.projectName || obj.name || (obj.project && obj.project.name);
+      const filename = obj.filename || (obj.file && obj.file.name);
+      const uploadDate = obj.uploadDate || obj.updatedAt || obj.createdAt;
+      if (!imageUrl) return null;
+      return { imageUrl, projectId, projectName, filename, uploadDate };
+    }
+
+    function isProbablyUrl(s) { return /^https?:\/\//i.test(s) || s.startsWith('data:image/'); }
+
     // Turn a non ok Response into an Error with details
     async function httpError(res) {
       let bodyText = '';
@@ -809,8 +851,7 @@
         if (err.status === 415) return `The ${action} failed due to unsupported media type. The server may expect a different field name like 'file' or 'image'.`;
         return `The ${action} failed with ${err.message}`;
       }
-      // Network or CORS
-      return `Network error during ${action}. Possible CORS or connectivity issue. Open the Network tab for details.`;
+      return `Network or parsing error during ${action}. The server may be returning HTML or a non-JSON body. Open the Network tab, click the upload request, and check the Response preview.`;
     }
   </script>
 </body>
