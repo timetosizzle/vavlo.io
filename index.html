@@ -771,7 +771,12 @@
             try {
                 showUploadProgress();
                 
-                const fileName = `${projectId}_v1_${file.name}`;
+                // Sanitize filename to remove special characters
+                const sanitizedFileName = file.name
+                    .replace(/[^\w\s.-]/gi, '') // Remove special characters
+                    .replace(/\s+/g, '_'); // Replace spaces with underscores
+                
+                const fileName = `${projectId}_v1_${sanitizedFileName}`;
                 const filePath = `${DROPBOX_CONFIG.uploadPath}${fileName}`;
                 
                 // Upload file to Dropbox
@@ -790,7 +795,8 @@
                 });
 
                 if (!uploadResponse.ok) {
-                    throw new Error(`Dropbox upload failed: ${uploadResponse.statusText}`);
+                    const errorText = await uploadResponse.text();
+                    throw new Error(`Dropbox upload failed: ${uploadResponse.statusText} - ${errorText}`);
                 }
 
                 const uploadResult = await uploadResponse.json();
@@ -842,7 +848,8 @@
                 
             } catch (error) {
                 hideUploadProgress();
-                alert('Dropbox upload failed: ' + error.message + '\nFalling back to local storage.');
+                console.error('Dropbox upload error:', error);
+                alert('Dropbox upload failed: ' + error.message + '\n\nFalling back to local storage. Your project will work but won\'t be saved to the cloud.');
                 createProjectLocally(file, projectId);
             }
         }
