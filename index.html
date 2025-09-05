@@ -208,7 +208,7 @@
         <li>Zoom: + or - keys, Ctrl or Cmd + mouse wheel, or the + and - in the header.</li>
         <li>Reset zoom: 0 key or the percent button. Default is fit to width.</li>
         <li>Pan: hold Space, then click and drag in the image area.</li>
-        <li>Add comment dot: click the image. The dot lands exactly where you click at any zoom.</li>
+        <li>Add comment dot: click the image. The dot lands where you click at any zoom.</li>
         <li>Tabs: filter All, Unresolved, or Resolved.</li>
         <li>Share: use the Copy button to copy the share URL.</li>
       </ul>
@@ -234,9 +234,13 @@
     let isDragging = false;
     let dragStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
-    // Config (cloud disabled)
+    // Config: use your API gateway to Dropbox
     const DROPBOX_CONFIG = { enabled: false };
-    const SERVER_CONFIG = { enabled: false };
+    const SERVER_CONFIG = {
+      enabled: true,
+      uploadUrl: '/api/upload',
+      projectUrl: '/api/project'
+    };
 
     // ===== Init =====
     document.addEventListener('DOMContentLoaded', () => {
@@ -294,7 +298,7 @@
         if (e.key === '0') { e.preventDefault(); fitWidthZoom(); }
       });
 
-      // Spacebar to pan - support both e.code and e.key for compatibility
+      // Spacebar to pan - support both e.code and e.key
       document.addEventListener('keydown', (e) => {
         const ae = document.activeElement;
         const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
@@ -362,12 +366,34 @@
 
     function createNewProject(file) {
       const projectId = generateProjectId();
+      if (SERVER_CONFIG.enabled) {
+        uploadToServer(file, projectId);
+      } else if (DROPBOX_CONFIG.enabled) {
+        // optional: direct to Dropbox flow if you enable it later
+        createLocalProject(file, projectId);
+      } else {
+        createLocalProject(file, projectId);
+      }
+    }
+
+    function createLocalProject(file, projectId) {
       currentProject = { id: projectId, name: file.name.replace(/\.[^/.]+$/, ''), versions: [ { id: 1, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name } ] };
       currentVersion = 1; comments[projectId] = {}; saveProject(); showDashboard();
     }
 
     function addNewVersion(file) {
       const newVersionId = currentProject.versions.length + 1;
+      if (SERVER_CONFIG.enabled) {
+        uploadNewVersionToServer(file, newVersionId);
+      } else if (DROPBOX_CONFIG.enabled) {
+        // optional: Dropbox path if enabled later
+        addLocalVersion(file, newVersionId);
+      } else {
+        addLocalVersion(file, newVersionId);
+      }
+    }
+
+    function addLocalVersion(file, newVersionId) {
       currentProject.versions.push({ id: newVersionId, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name });
       currentVersion = newVersionId; saveProject(); updateVersionSelector(); loadVersion(newVersionId);
     }
@@ -656,10 +682,114 @@
     // ===== Nav =====
     function goBack() { document.getElementById('dashboard').style.display = 'none'; document.getElementById('uploadPage').style.display = 'flex'; }
 
-    // ===== Storage =====
-    function saveProject() { if (!currentProject) return; const data = { project: currentProject, comments: comments[currentProject.id] || {} }; localStorage.setItem('project_' + currentProject.id, JSON.stringify(data)); }
-    function loadProject(projectId) { const raw = localStorage.getItem('project_' + projectId); if (!raw) return false; const data = JSON.parse(raw); currentProject = data.project; comments[projectId] = data.comments || {}; currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); }); return true; }
-    function loadFromUrl() { const params = new URLSearchParams(window.location.search); const pid = params.get('project'); if (pid && loadProject(pid)) { currentVersion = currentProject.versions.length; showDashboard(); } }
+    // ===== Storage and API =====
+    function saveProject() {
+      if (!currentProject) return;
+      const data = { project: currentProject, comments: comments[currentProject.id] || {} };
+      if (SERVER_CONFIG.enabled) {
+        saveProjectToServer(data).catch(err => {
+          console.warn('Server save failed. Saving locally as fallback.', err);
+          localStorage.setItem('project_' + currentProject.id, JSON.stringify(data));
+        });
+      } else {
+        localStorage.setItem('project_' + currentProject.id, JSON.stringify(data));
+      }
+    }
+
+    async function uploadToServer(file, projectId) {
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('projectId', projectId);
+        formData.append('projectName', file.name.replace(/\.[^/.]+$/, ''));
+
+        const res = await fetch(SERVER_CONFIG.uploadUrl, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+        const result = await res.json();
+
+        currentProject = {
+          id: projectId,
+          name: result.projectName || file.name.replace(/\.[^/.]+$/, ''),
+          versions: [
+            {
+              id: 1,
+              url: result.imageUrl,
+              uploadDate: new Date(result.uploadDate || Date.now()),
+              filename: result.filename || file.name
+            }
+          ]
+        };
+        currentVersion = 1;
+        comments[projectId] = {};
+        showDashboard();
+      } catch (err) {
+        console.error(err);
+        alert('Server upload failed. Falling back to local storage for now.');
+        createLocalProject(file, projectId);
+      }
+    }
+
+    async function uploadNewVersionToServer(file, newVersionId) {
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('projectId', currentProject.id);
+        formData.append('versionId', newVersionId);
+
+        const res = await fetch(`${SERVER_CONFIG.uploadUrl}/version`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+        const result = await res.json();
+
+        currentProject.versions.push({ id: newVersionId, url: result.imageUrl, uploadDate: new Date(result.uploadDate || Date.now()), filename: result.filename || file.name });
+        currentVersion = newVersionId; updateVersionSelector(); loadVersion(newVersionId);
+      } catch (err) {
+        console.error(err);
+        alert('Server version upload failed. Falling back to local storage for this version.');
+        addLocalVersion(file, newVersionId);
+      }
+    }
+
+    async function saveProjectToServer(projectData) {
+      const res = await fetch(SERVER_CONFIG.projectUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectData) });
+      if (!res.ok) throw new Error(`Save failed: ${res.status} ${res.statusText}`);
+    }
+
+    async function loadProjectFromServer(projectId) {
+      const res = await fetch(`${SERVER_CONFIG.projectUrl}/${projectId}`);
+      if (!res.ok) throw new Error(`Load failed: ${res.status} ${res.statusText}`);
+      const projectData = await res.json();
+      currentProject = projectData.project;
+      comments[projectId] = projectData.comments || {};
+      return true;
+    }
+
+    function loadProjectFromLocal(projectId) {
+      const raw = localStorage.getItem('project_' + projectId);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      currentProject = data.project;
+      comments[projectId] = data.comments || {};
+      currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); });
+      return true;
+    }
+
+    async function loadProject(projectId) {
+      if (SERVER_CONFIG.enabled) {
+        try { await loadProjectFromServer(projectId); return true; }
+        catch (e) { console.warn('Server load failed. Trying local storage.', e); return loadProjectFromLocal(projectId); }
+      } else {
+        return loadProjectFromLocal(projectId);
+      }
+    }
+
+    async function loadFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const pid = params.get('project');
+      if (pid) {
+        const ok = await loadProject(pid);
+        if (ok) { currentVersion = currentProject.versions.length; showDashboard(); }
+      }
+    }
 
     // ===== Utils =====
     function generateProjectId() { return 'proj_' + Math.random().toString(36).slice(2, 11); }
