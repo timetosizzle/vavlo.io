@@ -366,10 +366,34 @@
       const img = document.getElementById('mainImage');
       const imgRect = img.getBoundingClientRect();
       
-      // Calculate position relative to the actual image, accounting for zoom
-      const x = ((e.clientX - imgRect.left) / imgRect.width) * 100;
-      const y = ((e.clientY - imgRect.top) / imgRect.height) * 100;
+      // Calculate the actual displayed image dimensions accounting for object-fit: contain
+      const imgAspectRatio = img.naturalWidth / img.naturalHeight;
+      const containerAspectRatio = imgRect.width / imgRect.height;
       
+      let actualImageWidth, actualImageHeight, offsetX, offsetY;
+      
+      if (imgAspectRatio > containerAspectRatio) {
+        // Image is wider - fit to width, center vertically
+        actualImageWidth = imgRect.width;
+        actualImageHeight = imgRect.width / imgAspectRatio;
+        offsetX = 0;
+        offsetY = (imgRect.height - actualImageHeight) / 2;
+      } else {
+        // Image is taller - fit to height, center horizontally
+        actualImageWidth = imgRect.height * imgAspectRatio;
+        actualImageHeight = imgRect.height;
+        offsetX = (imgRect.width - actualImageWidth) / 2;
+        offsetY = 0;
+      }
+      
+      // Calculate position relative to the actual visible image content
+      const relativeX = e.clientX - imgRect.left - offsetX;
+      const relativeY = e.clientY - imgRect.top - offsetY;
+      
+      const x = (relativeX / actualImageWidth) * 100;
+      const y = (relativeY / actualImageHeight) * 100;
+      
+      // Check if click is within the actual image bounds
       if(x < 0 || x > 100 || y < 0 || y > 100) return;
       
       isAddingComment = true; 
@@ -383,6 +407,11 @@
       const author=document.getElementById('authorName').value.trim();
       const text=document.getElementById('commentText').value.trim();
       if(!author||!text||!pendingCommentPosition) return;
+      
+      // Remove pending marker
+      const pendingMarker = document.querySelector('.annotation-marker.pending');
+      if (pendingMarker) pendingMarker.remove();
+      
       const c={ id:genCommentId(), author, text, position:pendingCommentPosition, timestamp:new Date(), version:currentVersion, resolved:false, replies:[] };
       if(!comments[currentProject.id]) comments[currentProject.id]={};
       if(!comments[currentProject.id][currentVersion]) comments[currentProject.id][currentVersion]=[];
@@ -394,6 +423,10 @@
       renderComments(); renderAnnotations();
     }
     function cancelComment(){ 
+      // Remove pending marker
+      const pendingMarker = document.querySelector('.annotation-marker.pending');
+      if (pendingMarker) pendingMarker.remove();
+      
       isAddingComment=false; 
       pendingCommentPosition=null; 
       document.getElementById('newCommentForm').style.display='none';
