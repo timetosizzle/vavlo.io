@@ -1,145 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Image Annotation Tool</title>
   <style>
-    /* Brand Color Variables */
     :root {
-      --brand-background: #02042b;
-      --brand-text: #ffffff;
-      --brand-text-muted: rgba(255, 255, 255, 0.7);
-      --brand-text-subtle: rgba(255, 255, 255, 0.6);
-      --brand-accent: #ff037e;
-      --brand-accent-hover: #e6026f;
-      --brand-accent-light: rgba(255, 3, 126, 0.1);
-      --brand-accent-medium: rgba(255, 3, 126, 0.2);
-      --brand-accent-strong: rgba(255, 3, 126, 0.3);
-      --brand-surface: rgba(255, 255, 255, 0.05);
-      --brand-surface-hover: rgba(255, 255, 255, 0.08);
-      --brand-border: rgba(255, 255, 255, 0.1);
-      --brand-border-strong: rgba(255, 255, 255, 0.2);
-      --brand-border-dashed: rgba(255, 255, 255, 0.3);
+      --brand-background:#02042b;
+      --brand-text:#ffffff;
+      --brand-text-muted:rgba(255,255,255,0.7);
+      --brand-text-subtle:rgba(255,255,255,0.6);
+      --brand-accent:#ff037e;
+      --brand-accent-hover:#e6026f;
+      --brand-accent-light:rgba(255,3,126,0.1);
+      --brand-accent-medium:rgba(255,3,126,0.2);
+      --brand-accent-strong:rgba(255,3,126,0.3);
+      --brand-surface:rgba(255,255,255,0.05);
+      --brand-surface-hover:rgba(255,255,255,0.08);
+      --brand-border:rgba(255,255,255,0.1);
+      --brand-border-strong:rgba(255,255,255,0.2);
+      --brand-border-dashed:rgba(255,255,255,0.3);
     }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    html, body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--brand-background);
-      color: var(--brand-text);
-      height: 100%;
-    }
-
-    .btn {
-      background: var(--brand-accent);
-      color: var(--brand-text);
-      border: none;
-      padding: 12px 24px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: all 0.3s ease;
-    }
-    .btn:hover { background: var(--brand-accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px var(--brand-accent-strong); }
-    .btn-sm { padding: 6px 12px; font-size: 12px; }
-    .btn-secondary { background: var(--brand-surface-hover); color: var(--brand-text); border: 1px solid var(--brand-border-strong); }
-    .btn-secondary:hover { background: rgba(255,255,255,0.15); }
-
-    .upload-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background: var(--brand-background); }
-    .upload-box { background: var(--brand-surface-hover); border: 1px solid var(--brand-border); border-radius: 12px; padding: 60px 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); text-align: center; max-width: 500px; width: 100%; }
-    .logo-container { margin-bottom: 30px; text-align: center; }
-    .logo { max-width: 200px; height: auto; border-radius: 8px; }
-
-    .upload-area { border: 3px dashed var(--brand-border-dashed); border-radius: 8px; padding: 40px 20px; margin: 20px 0; transition: all 0.3s ease; cursor: pointer; background: rgba(255,255,255,0.02); }
-    .upload-area:hover, .upload-area.dragover { border-color: var(--brand-accent); background: var(--brand-accent-light); }
-    .upload-icon { font-size: 48px; color: var(--brand-text-subtle); margin-bottom: 16px; }
-    .upload-text { font-size: 18px; color: var(--brand-text); margin-bottom: 8px; font-weight: 500; }
-    .upload-subtext { font-size: 14px; color: var(--brand-text-muted); }
-    .hidden { display: none; }
-    .loading { text-align: center; padding: 40px; color: var(--brand-text-subtle); }
-
-    .dashboard { display: none; height: 100vh; overflow: hidden; }
-    .header { background: var(--brand-surface); border-bottom: 1px solid var(--brand-border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-    .header-left { display: flex; align-items: center; gap: 16px; flex: 1; }
-    .back-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 8px; border-radius: 4px; color: var(--brand-text); }
-    .back-btn:hover { background: var(--brand-surface-hover); }
-    .project-title { font-size: 18px; font-weight: 600; color: var(--brand-text); }
-    .version-selector { padding: 8px 12px; border: 1px solid var(--brand-border-strong); border-radius: 6px; font-size: 14px; background: var(--brand-surface); color: var(--brand-text); }
-    .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-
-    .share-link { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--brand-surface); border: 1px solid var(--brand-border-strong); border-radius: 6px; font-size: 14px; color: var(--brand-text); }
-    .share-link input { width: 340px; background: transparent; color: var(--brand-text); border: none; outline: none; }
-    .copy-btn { background: var(--brand-accent); color: var(--brand-text); border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.3s ease; }
-    .copy-btn:hover { background: var(--brand-accent-hover); }
-
-    .main-content { display: flex; height: calc(100vh - 73px); }
-    .image-container { flex: 1; position: relative; overflow: hidden; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
-    .image-wrapper { position: relative; max-width: 100%; max-height: 100%; cursor: crosshair; }
-    .main-image { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; transition: transform 0.2s ease; }
-
-    .zoom-controls { position: absolute; top: 20px; right: 20px; background: var(--brand-surface-hover); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--brand-border); }
-    .zoom-btn { background: none; border: none; padding: 12px; cursor: pointer; font-size: 16px; border-bottom: 1px solid var(--brand-border); color: var(--brand-text); transition: all 0.3s ease; }
-    .zoom-btn:last-child { border-bottom: none; }
-    .zoom-btn:hover { background: var(--brand-accent-light); }
-
-    .annotation-marker { position: absolute; width: 12px; height: 12px; background: var(--brand-accent); border: 2px solid var(--brand-text); border-radius: 50%; cursor: pointer; transform: translate(-50%,-50%); z-index: 10; box-shadow: 0 2px 8px var(--brand-accent-strong); transition: all 0.2s ease; }
-    .annotation-marker:hover { transform: translate(-50%,-50%) scale(1.2); background: var(--brand-accent-hover); box-shadow: 0 4px 12px rgba(255,3,126,0.6); }
-    .annotation-marker.active { background: var(--brand-text); border-color: var(--brand-accent); transform: translate(-50%,-50%) scale(1.3); box-shadow: 0 6px 16px rgba(255,3,126,0.8); }
-
-    .sidebar { width: 400px; background: var(--brand-surface); border-left: 1px solid var(--brand-border); display: flex; flex-direction: column; }
-    .sidebar-header { padding: 20px 24px; border-bottom: 1px solid var(--brand-border); }
-    .sidebar-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--brand-text); }
-    .comment-tabs { display: flex; gap: 8px; }
-    .tab { padding: 8px 16px; border: none; background: none; cursor: pointer; border-radius: 6px; font-size: 14px; color: var(--brand-text-muted); transition: all 0.3s ease; }
-    .tab.active { background: var(--brand-accent); color: var(--brand-text); }
-    .tab:hover:not(.active) { background: var(--brand-accent-light); color: var(--brand-text); }
-
-    .comments-container { flex: 1; overflow-y: auto; padding: 0 24px 24px; }
-    .comment-item { padding: 16px 0; border-bottom: 1px solid var(--brand-border); cursor: pointer; transition: all 0.3s ease; }
-    .comment-item:hover { background: var(--brand-accent-light); margin: 0 -16px; padding: 16px; border-radius: 8px; }
-    .comment-item.highlighted { background: var(--brand-accent-medium); margin: 0 -16px; padding: 16px; border-radius: 8px; border-bottom: 1px solid var(--brand-accent-strong); }
-    .comment-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .comment-author { font-weight: 600; font-size: 14px; color: var(--brand-text); }
-    .comment-number { display: inline-block; width: 20px; height: 20px; background: var(--brand-accent); color: var(--brand-text); border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; margin-right: 8px; vertical-align: middle; }
-    .comment-time { font-size: 12px; color: var(--brand-text-subtle); }
-    .comment-text { font-size: 14px; line-height: 1.4; margin-bottom: 8px; color: var(--brand-text); }
-    .comment-actions { display: flex; gap: 8px; font-size: 12px; }
-    .action-btn { background: none; border: none; color: var(--brand-accent); cursor: pointer; padding: 0; transition: all 0.3s ease; }
-    .action-btn:hover { color: var(--brand-accent-hover); text-decoration: underline; }
-
-    .reply-form, .edit-form { margin-top: 12px; padding: 12px; background: var(--brand-surface); border-radius: 6px; border: 1px solid var(--brand-border); }
-    .reply-input, .edit-input { width: 100%; padding: 8px; border: 1px solid var(--brand-border-strong); border-radius: 4px; font-size: 14px; resize: vertical; min-height: 60px; background: var(--brand-surface); color: var(--brand-text); }
-    .reply-input::placeholder, .edit-input::placeholder { color: rgba(255,255,255,0.5); }
-    .reply-actions { margin-top: 8px; display: flex; gap: 8px; }
-
-    .replies { margin-left: 20px; margin-top: 12px; border-left: 2px solid var(--brand-accent-strong); padding-left: 16px; }
-    .new-comment-form { padding: 24px 24px 40px 24px; border-top: 1px solid var(--brand-border); background: var(--brand-surface); }
-    .form-group { margin-bottom: 16px; }
-    .form-label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--brand-text); }
-    .form-input { width: 100%; padding: 10px; border: 1px solid var(--brand-border-strong); border-radius: 6px; font-size: 14px; background: var(--brand-surface); color: var(--brand-text); transition: all 0.3s ease; }
-    .form-input:focus { outline: none; border-color: var(--brand-accent); box-shadow: 0 0 0 3px var(--brand-accent-light); }
-    .form-input::placeholder { color: rgba(255,255,255,0.5); }
-    .form-textarea { min-height: 80px; resize: vertical; }
-
-    .upload-new-version { margin-top: 0; padding: 10px 12px; border: 2px dashed var(--brand-border-dashed); border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.3s ease; color: var(--brand-text); }
-    .upload-new-version:hover { border-color: var(--brand-accent); background: var(--brand-accent-light); }
-
-    @keyframes pulse {
-      0% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
-      50% { transform: translate(-50%,-50%) scale(1.2); opacity: 0.7; }
-      100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
-    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--brand-background);color:var(--brand-text);height:100%}
+    .btn{background:var(--brand-accent);color:#fff;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:16px;transition:.3s}
+    .btn:hover{background:var(--brand-accent-hover);transform:translateY(-1px);box-shadow:0 4px 12px var(--brand-accent-strong)}
+    .btn-sm{padding:6px 12px;font-size:12px}
+    .btn-secondary{background:var(--brand-surface-hover);color:#fff;border:1px solid var(--brand-border-strong)}
+    .hidden{display:none}
+    .upload-container{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+    .upload-box{background:var(--brand-surface-hover);border:1px solid var(--brand-border);border-radius:12px;padding:60px 40px;box-shadow:0 4px 20px rgba(0,0,0,.4);text-align:center;max-width:500px;width:100%}
+    .logo{max-width:200px;height:auto;border-radius:8px}
+    .upload-area{border:3px dashed var(--brand-border-dashed);border-radius:8px;padding:40px 20px;margin:20px 0;transition:.3s;cursor:pointer;background:rgba(255,255,255,0.02)}
+    .upload-area:hover,.upload-area.dragover{border-color:var(--brand-accent);background:var(--brand-accent-light)}
+    .upload-icon{font-size:48px;color:var(--brand-text-subtle);margin-bottom:16px}
+    .upload-text{font-size:18px;margin-bottom:8px;font-weight:500}
+    .upload-subtext{font-size:14px;color:var(--brand-text-muted)}
+    .dashboard{display:none;height:100vh;overflow:hidden}
+    .header{background:var(--brand-surface);border-bottom:1px solid var(--brand-border);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:20px}
+    .header-left{display:flex;align-items:center;gap:16px;flex:1}
+    .back-btn{background:none;border:none;font-size:18px;cursor:pointer;padding:8px;border-radius:4px;color:#fff}
+    .back-btn:hover{background:var(--brand-surface-hover)}
+    .project-title{font-size:18px;font-weight:600}
+    .version-selector{padding:8px 12px;border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px;background:var(--brand-surface);color:#fff}
+    .header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .share-link{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--brand-surface);border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px}
+    .share-link input{width:340px;background:transparent;color:#fff;border:none;outline:none}
+    .copy-btn{background:var(--brand-accent);color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px}
+    .main-content{display:flex;height:calc(100vh - 73px)}
+    .image-container{flex:1;position:relative;overflow:hidden;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
+    .image-wrapper{position:relative;max-width:100%;max-height:100%;cursor:crosshair}
+    .main-image{max-width:100%;max-height:100%;object-fit:contain;user-select:none;transition:transform .2s ease}
+    .zoom-controls{position:absolute;top:20px;right:20px;background:var(--brand-surface-hover);border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--brand-border)}
+    .zoom-btn{background:none;border:none;padding:12px;cursor:pointer;font-size:16px;border-bottom:1px solid var(--brand-border);color:#fff}
+    .zoom-btn:last-child{border-bottom:none}
+    .zoom-btn:hover{background:var(--brand-accent-light)}
+    .annotation-marker{position:absolute;width:12px;height:12px;background:var(--brand-accent);border:2px solid #fff;border-radius:50%;cursor:pointer;transform:translate(-50%,-50%);z-index:10;box-shadow:0 2px 8px var(--brand-accent-strong);transition:.2s}
+    .annotation-marker:hover{transform:translate(-50%,-50%) scale(1.2);background:var(--brand-accent-hover)}
+    .annotation-marker.active{background:#fff;border-color:var(--brand-accent);transform:translate(-50%,-50%) scale(1.3)}
+    .sidebar{width:400px;background:var(--brand-surface);border-left:1px solid var(--brand-border);display:flex;flex-direction:column}
+    .sidebar-header{padding:20px 24px;border-bottom:1px solid var(--brand-border)}
+    .sidebar-title{font-size:18px;font-weight:600;margin-bottom:16px}
+    .comment-tabs{display:flex;gap:8px}
+    .tab{padding:8px 16px;border:none;background:none;cursor:pointer;border-radius:6px;font-size:14px;color:var(--brand-text-muted)}
+    .tab.active{background:var(--brand-accent);color:#fff}
+    .tab:hover:not(.active){background:var(--brand-accent-light);color:#fff}
+    .comments-container{flex:1;overflow-y:auto;padding:0 24px 24px}
+    .comment-item{padding:16px 0;border-bottom:1px solid var(--brand-border);cursor:pointer}
+    .comment-item:hover{background:var(--brand-accent-light);margin:0 -16px;padding:16px;border-radius:8px}
+    .comment-item.highlighted{background:var(--brand-accent-medium);margin:0 -16px;padding:16px;border-radius:8px}
+    .comment-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .comment-author{font-weight:600;font-size:14px}
+    .comment-number{display:inline-block;width:20px;height:20px;background:var(--brand-accent);color:#fff;border-radius:50%;text-align:center;line-height:20px;font-size:12px;margin-right:8px}
+    .comment-time{font-size:12px;color:var(--brand-text-subtle)}
+    .comment-text{font-size:14px;line-height:1.4;margin-bottom:8px}
+    .comment-actions{display:flex;gap:8px;font-size:12px}
+    .action-btn{background:none;border:none;color:var(--brand-accent);cursor:pointer;padding:0}
+    .reply-form,.edit-form{margin-top:12px;padding:12px;background:var(--brand-surface);border-radius:6px;border:1px solid var(--brand-border)}
+    .reply-input,.edit-input{width:100%;padding:8px;border:1px solid var(--brand-border-strong);border-radius:4px;font-size:14px;resize:vertical;min-height:60px;background:var(--brand-surface);color:#fff}
+    .new-comment-form{padding:24px;border-top:1px solid var(--brand-border);background:var(--brand-surface)}
+    .form-group{margin-bottom:16px}
+    .form-label{display:block;margin-bottom:6px;font-weight:600;font-size:14px}
+    .form-input{width:100%;padding:10px;border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px;background:var(--brand-surface);color:#fff}
+    .upload-new-version{padding:10px 12px;border:2px dashed var(--brand-border-dashed);border-radius:8px;text-align:center;cursor:pointer;color:#fff}
+    .upload-new-version:hover{border-color:var(--brand-accent);background:var(--brand-accent-light)}
   </style>
 </head>
 <body>
-  <!-- Upload Page -->
   <div id="uploadPage" class="upload-container">
     <div class="upload-box">
-      <div class="logo-container">
-        <img src="https://raw.githubusercontent.com/timetosizzle/vavlo.io/a8b3a7971d3354aad74cb98387ed809bbc397271/Vavlo%20-%20logo-%20white%401000x.png" alt="Vavlo Logo" class="logo"/>
-      </div>
+      <img src="https://raw.githubusercontent.com/timetosizzle/vavlo.io/a8b3a7971d3354aad74cb98387ed809bbc397271/Vavlo%20-%20logo-%20white%401000x.png" alt="Vavlo Logo" class="logo"/>
       <div class="upload-area" id="uploadArea">
         <div class="upload-icon">📁</div>
         <div class="upload-text">Drag & drop your image here</div>
@@ -150,15 +100,12 @@
     </div>
   </div>
 
-  <!-- Annotation Dashboard -->
   <div id="dashboard" class="dashboard">
     <header class="header">
       <div class="header-left">
         <button class="back-btn" onclick="goBack()">←</button>
         <div class="project-title" id="projectTitle">Untitled Project</div>
-        <select class="version-selector" id="versionSelector">
-          <option value="1">Version 1 (Current)</option>
-        </select>
+        <select class="version-selector" id="versionSelector"></select>
       </div>
       <div class="header-right">
         <div class="share-link">
@@ -166,13 +113,14 @@
           <input type="text" id="shareUrl" readonly/>
           <button class="copy-btn" onclick="copyShareLink()">Copy</button>
         </div>
-        <div class="upload-new-version" onclick="document.getElementById('newVersionInput').click()">+ Upload New Version</div>
+        <div id="expiresBadge" style="font-size:12px;color:var(--brand-text-subtle);"></div>
+        <div class="upload-new-version" id="uploadVersionBtn">+ Upload New Version</div>
         <input type="file" id="newVersionInput" accept="image/*" class="hidden"/>
       </div>
     </header>
 
     <div class="main-content">
-      <div class="image-container" id="imageContainer">
+      <div class="image-container">
         <div class="image-wrapper" id="imageWrapper">
           <img id="mainImage" class="main-image" alt="Main Image"/>
         </div>
@@ -192,9 +140,7 @@
             <button class="tab" onclick="filterComments('resolved')">Resolved</button>
           </div>
         </div>
-
         <div class="comments-container" id="commentsContainer"></div>
-
         <div class="new-comment-form" id="newCommentForm" style="display:none;">
           <div class="form-group">
             <label class="form-label">Your Name</label>
@@ -202,9 +148,9 @@
           </div>
           <div class="form-group">
             <label class="form-label">Comment</label>
-            <textarea class="form-input form-textarea" id="commentText" placeholder="Add your comment..."></textarea>
+            <textarea class="form-input" id="commentText" placeholder="Add your comment..."></textarea>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex;gap:8px;">
             <button class="btn btn-sm" onclick="submitComment()">Add Comment</button>
             <button class="btn btn-sm btn-secondary" onclick="cancelComment()">Cancel</button>
           </div>
@@ -214,281 +160,141 @@
   </div>
 
   <script>
-    // ====== App State ======
+    // Point this to your deployed Worker URL later, for example:
+    // const WORKER_BASE = "https://vavlo-worker.yourname.workers.dev";
+    const WORKER_BASE = "";
+
+    // State
     let currentProject = null;
     let currentVersion = 1;
     let comments = {};
     let zoomLevel = 1;
     let isAddingComment = false;
     let pendingCommentPosition = null;
-    let activeCommentId = null;
+    let viewerMode = false;
 
-    // 90-day TTL
     const TTL_DAYS = 90;
 
-    // Dropbox configuration (client-side demo)
-    const DROPBOX_CONFIG = {
-      accessToken: 'sl.u.AF9zlUsaWAvT7lv5-RTeqo3kqxb6sxJ0GcFq2CHlh-6QUmOWxF3-0Wh9lKrCgmWcySt-uzJOpBT4bCfZcv-WcXpNF0amQculH6hukhPX6w4D8mzkhmdlT1BMKq1g_VM1jG8VRwpb_kTPOnYN7okshLRBjD3QgB_tZB2S9o5HtWWiG4RA-kdsXE4aNPSaDZEMcwaMTboOLhtK9bRK-71es69uQAxH2m6DJnIZ_ELDYfd8-E1kHTNUas8g2-T7BtJhRxpzRQtzUiJr-aRDBM-BAHAAuXK2pMoBaFCSvMOGdRRmGvcd0X73e4nt5aGhVKOCyqVFvHdeKGepZiQ1Tui6N6EiYeaotTfU6wOM_sJPVOYsX0AZOD9mUAnX-PZFlR2apI_vxXGjXXCgpozd_MX3DVgBiyhigE3jWrlhGphH8uDuUn1AZLABJUjfaNFXUXAA9QQwD7Vu3bV1i8xiq6duRbmeKQJmlcHWMosW5tWocWthT1PSORW8WJlWKfMrnALYjStDMcuMGJE3R9L2U9n84z4kmKva2X9YaZueyA-UKHAAum5BQZ2yEaSl96flelNezkihXO15HYdRFk8JphRj8EMIb5mdpZ6jD8tDWXhOcLHZDpsAOgjuAaiXO3vMJkGE09VZddZcyDjI6xVAxvmU8tGc7W1WvR74G98tEbK3FFd9iUelmhKOSNBCxIdB3QZg-fM_fwyXW53CCi7M3V-OP731JVAXZnZuTR-JpE1biHHDSEuY6DV-TRWIQYqyGeAMoSepDLCxdSSRi9J-USlLJ2mRZ81UbHOMW2nztXfYs2P8aFlfHkw8FTkVF6K91Dbv0bnNZOafjCHVXRCAIeyGZI-yxSxtwW7Zo34iXii2KYR5Q4k_H2eaGK6gVyUkn6zzZI-hX7ujMnLASsCwpL6aA7y_2Xmnmd8MiMcPRowpTm13ddtEjOi3SjxJCUpB-rptoWuJAM83YPkbg0iIoQlabZpZo-WHECXsVURJiHknm1aOaNoiUD0LA9icHJeZXgKT7AooVFmKNvSTvsyGUICfk-qMgHtPhB2IqsHVldVYKhPr8-xl6JUxsJacM4MR6Pp4RjxqEmn-mK30Gt0T7UZNGHjlulJjqAdFrRbqD_eDGKedf0ILPgrg1xJJzb4xWgEfWlExyFlLVfi39HoTcUwAcw2a7Jw2JC4SmgJkBQpdsft834cfFIKhVZ3Q9E8VyDWbNqLOz0XUguscWzIZMLOhKaqBxHYWcqfz9Jg9LNoAHyptMqLTkBlNIf0o8isw-_9YFKV3N_UEmZqi9ThaGtDjCeTjmjJCwGSucxLl03oRUdqH2GwEWpGZmZAoe_TDk-UfAos',
-      appKey: '704javryfn3g330',
-      enabled: true,
-      uploadPath: '/ImageAnnotationTool/'
-    };
-
-    // Optional server config (disabled in this file)
-    const SERVER_CONFIG = {
-      uploadUrl: '/api/upload',
-      projectUrl: '/api/project',
-      enabled: false
-    };
-
-    // ====== Init ======
     document.addEventListener('DOMContentLoaded', () => {
-      setupEventListeners();
+      setupListeners();
       loadFromUrl();
     });
 
-    function setupEventListeners() {
+    function setupListeners(){
       const fileInput = document.getElementById('fileInput');
       const uploadArea = document.getElementById('uploadArea');
       const newVersionInput = document.getElementById('newVersionInput');
+      const uploadVersionBtn = document.getElementById('uploadVersionBtn');
 
-      fileInput.addEventListener('change', handleFileUpload);
-      newVersionInput.addEventListener('change', handleNewVersionUpload);
+      fileInput.addEventListener('change', e => { const f = e.target.files[0]; if (f) createNewProject(f); });
+      newVersionInput.addEventListener('change', e => { const f = e.target.files[0]; if (f && currentProject) addNewVersion(f); });
 
       uploadArea.addEventListener('click', () => fileInput.click());
-      uploadArea.addEventListener('dragover', handleDragOver);
-      uploadArea.addEventListener('dragleave', handleDragLeave);
-      uploadArea.addEventListener('drop', handleDrop);
+      uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+      uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+      uploadArea.addEventListener('drop', e => {
+        e.preventDefault(); uploadArea.classList.remove('dragover');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) createNewProject(f);
+      });
 
       document.getElementById('imageWrapper').addEventListener('click', handleImageClick);
       document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
+      uploadVersionBtn.addEventListener('click', () => document.getElementById('newVersionInput').click());
     }
 
-    // ====== Upload/Create Project ======
-    function handleFileUpload(e) {
-      const file = e.target.files[0];
-      if (file) createNewProject(file);
+    // Worker API helpers
+    async function workerUpload(file, key){
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('key', key);
+      const res = await fetch(`${WORKER_BASE}/upload`, { method:'POST', body: fd });
+      if(!res.ok) throw new Error(await res.text());
+      return res.json(); // { imageUrl }
     }
-    function handleNewVersionUpload(e) {
-      const file = e.target.files[0];
-      if (file && currentProject) addNewVersion(file);
-    }
-    function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
-    function handleDragLeave(e) { e.currentTarget.classList.remove('dragover'); }
-    function handleDrop(e) {
-      e.preventDefault(); e.currentTarget.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) createNewProject(file);
-    }
-
-    function createNewProject(file) {
-      const projectId = generateProjectId();
-      if (DROPBOX_CONFIG.enabled) uploadToDropbox(file, projectId);
-      else if (SERVER_CONFIG.enabled) uploadToServer(file, projectId);
-      else createProjectLocally(file, projectId);
-    }
-
-    function createProjectLocally(file, projectId) {
-      currentProject = {
-        id: projectId,
-        name: file.name.replace(/\.[^/.]+$/, ''),
-        versions: [{ id: 1, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name }],
-        sharedJsonUrl: null
-      };
-      currentVersion = 1;
-      comments[projectId] = {};
-      saveProject();
-      showDashboard();
-    }
-
-    // ====== Dropbox Helpers (90-day public links) ======
-    function getExpiryISO(days = TTL_DAYS) {
-      const d = new Date();
-      d.setDate(d.getDate() + days);
-      // DropBox needs full ISO string, no ms
-      return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
-    }
-    function toDirectLink(url) {
-      // Convert www.dropbox.com/s/... -> dl.dropboxusercontent.com/s/...
-      return url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
-    }
-    async function dbxUpload(path, body) {
-      const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`,
-          'Content-Type': 'application/octet-stream',
-          'Dropbox-API-Arg': JSON.stringify({ path, mode: 'overwrite', autorename: false })
-        },
-        body
+    async function workerSaveProject(project, commentsByVersion){
+      const res = await fetch(`${WORKER_BASE}/save-project`,{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ project, comments: commentsByVersion })
       });
-      if (!res.ok) throw new Error(`Dropbox upload failed: ${res.status} ${await res.text()}`);
-      return res.json();
-    }
-    async function dbxCreateSharedLink(path, expiresISO) {
-      const res = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path,
-          settings: { requested_visibility: 'public', expires: expiresISO }
-        })
-      });
-      if (res.ok) return (await res.json()).url;
-      // If link exists, fall through to update
-      const txt = await res.text();
-      if (!/shared_link_already_exists/i.test(txt)) throw new Error(`Create link failed: ${txt}`);
-      return dbxUpdateSharedLink(path, expiresISO);
-    }
-    async function dbxUpdateSharedLink(path, expiresISO) {
-      // Get existing link
-      const listRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, direct_only: true })
-      });
-      if (!listRes.ok) throw new Error(`List links failed: ${await listRes.text()}`);
-      const list = await listRes.json();
-      const link = (list.links || [])[0];
-      if (!link) throw new Error('No existing link found to update');
-      // Modify settings
-      const modRes = await fetch('https://api.dropboxapi.com/2/sharing/modify_shared_link_settings', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${DROPBOX_CONFIG.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: link.url,
-          settings: { expires: expiresISO, requested_visibility: 'public' }
-        })
-      });
-      if (!modRes.ok) throw new Error(`Modify link failed: ${await modRes.text()}`);
-      const updated = await modRes.json();
-      return updated.url || link.url;
+      if(!res.ok) throw new Error(await res.text());
+      return res.json(); // { sharedJsonUrl }
     }
 
-    async function uploadToDropbox(file, projectId) {
-      try {
+    // Create project
+    async function createNewProject(file){
+      try{
+        if(!WORKER_BASE){ alert('Set WORKER_BASE to your Worker URL first.'); return; }
         showUploadProgress();
-        const sanitized = file.name.replace(/[^\w\s.-]/g, '').replace(/\s+/g, '_');
-        const fileName = `${projectId}_v1_${sanitized}`;
-        const filePath = `${DROPBOX_CONFIG.uploadPath}${fileName}`;
-
-        const uploadResult = await dbxUpload(filePath, file);
-        const expiresISO = getExpiryISO();
-        const shareUrl = await dbxCreateSharedLink(uploadResult.path_display, expiresISO);
-        const imageUrl = toDirectLink(shareUrl);
+        const projectId = generateProjectId();
+        const sanitized = file.name.replace(/[^\w\s.-]/g,'').replace(/\s+/g,'_');
+        const key = `${projectId}_v1_${sanitized}`;
+        const { imageUrl } = await workerUpload(file, key);
 
         currentProject = {
           id: projectId,
           name: file.name.replace(/\.[^/.]+$/, ''),
-          versions: [{ id: 1, url: imageUrl, dropboxPath: uploadResult.path_display, uploadDate: new Date(), filename: file.name }],
-          sharedJsonUrl: null
+          versions: [{ id:1, url:imageUrl, uploadDate:new Date(), filename:file.name }],
+          sharedJsonUrl: null,
+          expiresAt: getExpiryDate()
         };
         currentVersion = 1;
         comments[projectId] = {};
-
-        await ensureProjectJsonSharedLink(); // uploads JSON + creates 90-day link
+        const { sharedJsonUrl } = await workerSaveProject(currentProject, comments[projectId]);
+        currentProject.sharedJsonUrl = sharedJsonUrl;
         hideUploadProgress();
         showDashboard();
-      } catch (err) {
+      }catch(err){
         hideUploadProgress();
-        console.error('Dropbox upload error:', err);
-        alert('Dropbox upload failed: ' + err.message + '\n\nFalling back to local storage.');
-        createProjectLocally(file, projectId);
+        alert('Upload failed: ' + err.message);
       }
     }
 
-    async function uploadNewVersionToDropbox(file, newVersionId) {
-      try {
+    // Add version
+    async function addNewVersion(file){
+      try{
         showUploadProgress();
-        const sanitized = file.name.replace(/[^\w\s.-]/g, '').replace(/\s+/g, '_');
-        const fileName = `${currentProject.id}_v${newVersionId}_${sanitized}`;
-        const filePath = `${DROPBOX_CONFIG.uploadPath}${fileName}`;
+        const newVersionId = currentProject.versions.length + 1;
+        const sanitized = file.name.replace(/[^\w\s.-]/g,'').replace(/\s+/g,'_');
+        const key = `${currentProject.id}_v${newVersionId}_${sanitized}`;
+        const { imageUrl } = await workerUpload(file, key);
 
-        const uploadResult = await dbxUpload(filePath, file);
-        const shareUrl = await dbxCreateSharedLink(uploadResult.path_display, getExpiryISO());
-        const imageUrl = toDirectLink(shareUrl);
-
-        currentProject.versions.push({
-          id: newVersionId,
-          url: imageUrl,
-          dropboxPath: uploadResult.path_display,
-          uploadDate: new Date(),
-          filename: file.name
-        });
+        currentProject.versions.push({ id:newVersionId, url:imageUrl, uploadDate:new Date(), filename:file.name });
         currentVersion = newVersionId;
-
-        // Re-upload JSON and keep 90-day link current
-        await ensureProjectJsonSharedLink();
-
+        // overwrite JSON without touching its expiration
+        await workerSaveProject(currentProject, comments[currentProject.id]);
         hideUploadProgress();
         updateVersionSelector();
         loadVersion(newVersionId);
-      } catch (err) {
+      }catch(err){
         hideUploadProgress();
-        alert('Dropbox upload failed: ' + err.message + '\nFalling back to local storage.');
-        addNewVersionLocally(file, newVersionId);
+        alert('Upload failed: ' + err.message);
       }
     }
 
-    async function ensureProjectJsonSharedLink() {
-      const jsonName = `${currentProject.id}_project.json`;
-      const jsonPath = `${DROPBOX_CONFIG.uploadPath}projects/${jsonName}`;
-      const payload = JSON.stringify({
-        project: currentProject,
-        comments: comments[currentProject.id] || {}
-      });
-      await dbxUpload(jsonPath, payload);
-      const url = await dbxCreateSharedLink(jsonPath, getExpiryISO());
-      currentProject.sharedJsonUrl = toDirectLink(url);
-      updateShareUrlBox();
-    }
-
-    // ====== Server Uploads (placeholder) ======
-    async function uploadToServer(file, projectId) {
-      try {
-        showUploadProgress();
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('projectId', projectId);
-        formData.append('projectName', file.name.replace(/\.[^/.]+$/, ''));
-
-        const res = await fetch(SERVER_CONFIG.uploadUrl, { method: 'POST', body: formData });
-        if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-        const result = await res.json();
-
-        currentProject = {
-          id: projectId,
-          name: result.projectName,
-          versions: [{ id: 1, url: result.imageUrl, uploadDate: new Date(result.uploadDate), filename: result.filename }],
-          sharedJsonUrl: result.sharedJsonUrl || null
-        };
-        currentVersion = 1;
-        comments[projectId] = {};
-        hideUploadProgress();
-        showDashboard();
-      } catch (err) {
-        hideUploadProgress();
-        alert('Upload failed: ' + err.message + '\nFalling back to local storage.');
-        createProjectLocally(file, projectId);
+    // Load via shared URL
+    async function loadFromUrl(){
+      const p = new URLSearchParams(location.search);
+      const shared = p.get('shared');
+      if(shared){
+        viewerMode = true;
+        try{
+          const res = await fetch(shared);
+          if(!res.ok) throw new Error('Unable to load shared project');
+          const data = await res.json();
+          currentProject = data.project;
+          comments[currentProject.id] = data.comments || {};
+          currentVersion = currentProject.versions.length;
+          showDashboard(true);
+        }catch{
+          alert('This shared link may have expired or is invalid.');
+        }
       }
     }
 
-    function addNewVersion(file) {
-      const newVersionId = currentProject.versions.length + 1;
-      if (DROPBOX_CONFIG.enabled) uploadNewVersionToDropbox(file, newVersionId);
-      else if (SERVER_CONFIG.enabled) uploadNewVersionToServer(file, newVersionId);
-      else addNewVersionLocally(file, newVersionId);
-    }
-    function addNewVersionLocally(file, newVersionId) {
-      currentProject.versions.push({ id: newVersionId, file, url: URL.createObjectURL(file), uploadDate: new Date(), filename: file.name });
-      currentVersion = newVersionId;
-      saveProject();
-      updateVersionSelector();
-      loadVersion(newVersionId);
-    }
-
-    // ====== UI/Dashboard ======
-    function showDashboard() {
+    // UI and comments (same as before)
+    function showDashboard(){
       document.getElementById('uploadPage').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('projectTitle').textContent = currentProject.name;
@@ -496,366 +302,214 @@
       updateVersionSelector();
       loadVersion(currentVersion);
       renderComments();
-    }
-    function updateShareUrlBox() {
-      const input = document.getElementById('shareUrl');
-      // Prefer public JSON link, else fallback to local param
-      if (currentProject?.sharedJsonUrl) {
-        input.value = `${window.location.origin}${window.location.pathname}?shared=${encodeURIComponent(currentProject.sharedJsonUrl)}`;
-      } else {
-        input.value = `${window.location.origin}${window.location.pathname}?project=${currentProject.id}`;
-      }
-    }
-    function updateVersionSelector() {
-      const selector = document.getElementById('versionSelector');
-      selector.innerHTML = '';
-      currentProject.versions.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v.id;
-        opt.textContent = `Version ${v.id}${v.id === currentProject.versions.length ? ' (Current)' : ''}`;
-        selector.appendChild(opt);
-      });
-      selector.value = currentVersion;
-    }
-    function loadVersion(versionId) {
-      const version = currentProject.versions.find(v => v.id === Number(versionId));
-      if (!version) return;
-      const img = document.getElementById('mainImage');
-      img.src = version.url;
-      img.onload = () => { resetZoom(); renderAnnotations(); setTimeout(applyZoom, 100); };
-    }
-    function handleVersionChange(e) {
-      currentVersion = parseInt(e.target.value, 10);
-      loadVersion(currentVersion);
-      renderComments();
+      updateExpiresBadge();
+
+      const newForm = document.getElementById('newCommentForm');
+      const uploadBtn = document.getElementById('uploadVersionBtn');
+      if(viewerMode){ newForm.style.display = 'none'; uploadBtn.style.display = 'none'; }
+      else { newForm.style.display = 'none'; uploadBtn.style.display = 'block'; }
     }
 
-    function handleImageClick(event) {
-      if (isAddingComment) return;
-      const img = document.getElementById('mainImage');
-      const imgRect = img.getBoundingClientRect();
-      const x = ((event.clientX - imgRect.left) / imgRect.width) * 100;
-      const y = ((event.clientY - imgRect.top) / imgRect.height) * 100;
-      if (x < 0 || x > 100 || y < 0 || y > 100) return;
-      startAddingComment(x, y);
+    function updateShareUrlBox(){
+      const input = document.getElementById('shareUrl');
+      input.value = currentProject?.sharedJsonUrl ? `${location.origin}${location.pathname}?shared=${encodeURIComponent(currentProject.sharedJsonUrl)}` : '';
     }
-    function startAddingComment(x, y) {
-      isAddingComment = true;
-      pendingCommentPosition = { x, y };
-      document.getElementById('newCommentForm').style.display = 'block';
+
+    function getExpiryDate(days = TTL_DAYS){ const d = new Date(); d.setDate(d.getDate()+days); return d; }
+    function daysLeft(expiresAt){ const diff=new Date(expiresAt)-new Date(); return Math.max(0, Math.ceil(diff/86400000)); }
+    function updateExpiresBadge(){
+      const el = document.getElementById('expiresBadge');
+      const d = daysLeft(currentProject?.expiresAt);
+      el.textContent = isNaN(d) ? '' : `Expires in ${d} day${d===1?'':'s'}`;
+    }
+    function updateVersionSelector(){
+      const s = document.getElementById('versionSelector'); s.innerHTML='';
+      currentProject.versions.forEach(v=>{
+        const o=document.createElement('option'); o.value=v.id; o.textContent=`Version ${v.id}${v.id===currentProject.versions.length?' (Current)':''}`; s.appendChild(o);
+      });
+      s.value = currentVersion;
+    }
+    function loadVersion(id){
+      const v=currentProject.versions.find(x=>x.id===Number(id)); if(!v) return;
+      const img=document.getElementById('mainImage'); img.src=v.url; img.onload=()=>{ resetZoom(); renderAnnotations(); setTimeout(applyZoom,100); };
+    }
+    function handleVersionChange(e){ currentVersion=parseInt(e.target.value,10); loadVersion(currentVersion); renderComments(); }
+
+    // Comments
+    function handleImageClick(e){
+      if(viewerMode) return;
+      const img=document.getElementById('mainImage');
+      const r=img.getBoundingClientRect();
+      const x=((e.clientX-r.left)/r.width)*100, y=((e.clientY-r.top)/r.height)*100;
+      if(x<0||x>100||y<0||y>100) return;
+      isAddingComment=true; pendingCommentPosition={x,y};
+      document.getElementById('newCommentForm').style.display='block';
       document.getElementById('authorName').focus();
     }
-    function submitComment() {
-      const author = document.getElementById('authorName').value.trim();
-      const text = document.getElementById('commentText').value.trim();
-      if (!author || !text || !pendingCommentPosition) return;
-      const commentId = generateCommentId();
-      const comment = { id: commentId, author, text, position: pendingCommentPosition, timestamp: new Date(), version: currentVersion, resolved: false, replies: [] };
-      if (!comments[currentProject.id]) comments[currentProject.id] = {};
-      if (!comments[currentProject.id][currentVersion]) comments[currentProject.id][currentVersion] = [];
-      comments[currentProject.id][currentVersion].push(comment);
+    function submitComment(){
+      if(viewerMode) return;
+      const author=document.getElementById('authorName').value.trim();
+      const text=document.getElementById('commentText').value.trim();
+      if(!author||!text||!pendingCommentPosition) return;
+      const c={ id:genCommentId(), author, text, position:pendingCommentPosition, timestamp:new Date(), version:currentVersion, resolved:false, replies:[] };
+      if(!comments[currentProject.id]) comments[currentProject.id]={};
+      if(!comments[currentProject.id][currentVersion]) comments[currentProject.id][currentVersion]=[];
+      comments[currentProject.id][currentVersion].push(c);
+      document.getElementById('newCommentForm').style.display='none';
+      document.getElementById('authorName').value=''; document.getElementById('commentText').value='';
+      isAddingComment=false; pendingCommentPosition=null;
       saveProject();
-      cancelComment();
-      renderComments();
-      renderAnnotations();
+      renderComments(); renderAnnotations();
     }
-    function cancelComment() {
-      isAddingComment = false;
-      pendingCommentPosition = null;
-      document.getElementById('newCommentForm').style.display = 'none';
-      document.getElementById('authorName').value = '';
-      document.getElementById('commentText').value = '';
+    function cancelComment(){ isAddingComment=false; pendingCommentPosition=null; document.getElementById('newCommentForm').style.display='none'; }
+    function renderComments(){
+      const container=document.getElementById('commentsContainer');
+      const arr=comments[currentProject.id]?.[currentVersion]||[];
+      if(!arr.length){ container.innerHTML='<div class="upload-subtext" style="padding:24px;">No comments yet. Click the image to add one.</div>'; return; }
+      container.innerHTML=''; arr.forEach((c,i)=>container.appendChild(commentEl(c,i+1)));
     }
-
-    function renderComments() {
-      const container = document.getElementById('commentsContainer');
-      const versionComments = comments[currentProject.id]?.[currentVersion] || [];
-      if (versionComments.length === 0) {
-        container.innerHTML = '<div class="loading">No comments yet. Click on the image to add one.</div>';
-        return;
-      }
-      container.innerHTML = '';
-      versionComments.forEach((c, i) => container.appendChild(createCommentElement(c, i + 1)));
-    }
-    function createCommentElement(comment, number) {
-      const div = document.createElement('div');
-      div.className = 'comment-item';
-      div.dataset.commentId = comment.id;
-      div.innerHTML = `
+    function commentEl(c,n){
+      const d=document.createElement('div'); d.className='comment-item'; d.dataset.commentId=c.id;
+      d.innerHTML=`
         <div class="comment-header">
-          <span class="comment-author"><span class="comment-number">#${number}</span> ${comment.author}</span>
-          <span class="comment-time">${formatDate(comment.timestamp)}</span>
+          <span class="comment-author"><span class="comment-number">#${n}</span> ${escapeHtml(c.author)}</span>
+          <span class="comment-time">${new Date(c.timestamp).toLocaleString()}</span>
         </div>
-        <div class="comment-text">${escapeHtml(comment.text)}</div>
+        <div class="comment-text">${escapeHtml(c.text)}</div>
+        ${viewerMode?'':`
         <div class="comment-actions">
-          <button class="action-btn" onclick="toggleResolve('${comment.id}')">${comment.resolved ? 'Unresolve' : 'Resolve'}</button>
-          <button class="action-btn" onclick="showReplyForm('${comment.id}')">Reply</button>
-          <button class="action-btn" onclick="editComment('${comment.id}')">Edit</button>
-          <button class="action-btn" onclick="deleteComment('${comment.id}')">Delete</button>
-        </div>
-        <div class="replies" id="replies-${comment.id}"></div>`;
-      div.addEventListener('click', () => highlightAnnotation(comment.id));
-      if (comment.replies?.length) {
-        const repliesContainer = div.querySelector(`#replies-${comment.id}`);
-        comment.replies.forEach(r => repliesContainer.appendChild(createReplyElement(r, comment.id)));
-      }
-      return div;
+          <button class="action-btn" onclick="toggleResolve('${c.id}')">${c.resolved?'Unresolve':'Resolve'}</button>
+          <button class="action-btn" onclick="showReplyForm('${c.id}')">Reply</button>
+          <button class="action-btn" onclick="editComment('${c.id}')">Edit</button>
+          <button class="action-btn" onclick="deleteComment('${c.id}')">Delete</button>
+        </div>`}
+        <div class="replies" id="replies-${c.id}"></div>`;
+      if(c.replies?.length){ const rc=d.querySelector(`#replies-${c.id}`); c.replies.forEach(r=>rc.appendChild(replyEl(r,c.id))); }
+      d.addEventListener('click',()=>highlightAnnotation(c.id));
+      return d;
     }
-    function createReplyElement(reply, parentId) {
-      const div = document.createElement('div');
-      div.className = 'comment-item';
-      div.innerHTML = `
+    function replyEl(r,pid){
+      const d=document.createElement('div'); d.className='comment-item';
+      d.innerHTML=`
         <div class="comment-header">
-          <span class="comment-author">${reply.author}</span>
-          <span class="comment-time">${formatDate(reply.timestamp)}</span>
+          <span class="comment-author">${escapeHtml(r.author)}</span>
+          <span class="comment-time">${new Date(r.timestamp).toLocaleString()}</span>
         </div>
-        <div class="comment-text">${escapeHtml(reply.text)}</div>
-        <div class="comment-actions">
-          <button class="action-btn" onclick="editReply('${parentId}', '${reply.id}')">Edit</button>
-          <button class="action-btn" onclick="deleteReply('${parentId}', '${reply.id}')">Delete</button>
-        </div>`;
-      return div;
+        <div class="comment-text">${escapeHtml(r.text)}</div>`;
+      return d;
     }
-
-    function renderAnnotations() {
-      document.querySelectorAll('.annotation-marker').forEach(m => m.remove());
-      const versionComments = comments[currentProject.id]?.[currentVersion] || [];
-      const imageWrapper = document.getElementById('imageWrapper');
-      versionComments.forEach((comment) => {
-        const marker = document.createElement('div');
-        marker.className = 'annotation-marker';
-        marker.dataset.commentId = comment.id;
-        marker.style.left = comment.position.x + '%';
-        marker.style.top = comment.position.y + '%';
-        marker.title = `${comment.author}: ${comment.text.substring(0, 50)}${comment.text.length > 50 ? '...' : ''}`;
-        marker.addEventListener('click', (e) => { e.stopPropagation(); highlightAnnotation(comment.id); });
-        imageWrapper.appendChild(marker);
+    function renderAnnotations(){
+      document.querySelectorAll('.annotation-marker').forEach(m=>m.remove());
+      const arr=comments[currentProject.id]?.[currentVersion]||[];
+      const wrap=document.getElementById('imageWrapper');
+      arr.forEach(c=>{
+        const m=document.createElement('div'); m.className='annotation-marker'; m.dataset.commentId=c.id;
+        m.style.left=c.position.x+'%'; m.style.top=c.position.y+'%';
+        m.title = `${c.author}: ${c.text.slice(0,50)}${c.text.length>50?'...':''}`;
+        m.addEventListener('click',e=>{e.stopPropagation(); highlightAnnotation(c.id);});
+        wrap.appendChild(m);
       });
     }
-    function highlightAnnotation(commentId) {
-      document.querySelectorAll('.annotation-marker').forEach(m => m.classList.remove('active'));
-      document.querySelectorAll('.comment-item').forEach(i => i.classList.remove('highlighted'));
-      const marker = document.querySelector(`.annotation-marker[data-comment-id="${commentId}"]`);
-      const commentElement = document.querySelector(`.comment-item[data-comment-id="${commentId}"]`);
-      if (marker) marker.classList.add('active');
-      if (commentElement) { commentElement.classList.add('highlighted'); commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-      activeCommentId = commentId;
+    function highlightAnnotation(id){
+      document.querySelectorAll('.annotation-marker').forEach(m=>m.classList.remove('active'));
+      document.querySelectorAll('.comment-item').forEach(i=>i.classList.remove('highlighted'));
+      const marker=document.querySelector(`.annotation-marker[data-comment-id="${id}"]`);
+      const item=document.querySelector(`.comment-item[data-comment-id="${id}"]`);
+      if(marker) marker.classList.add('active');
+      if(item){ item.classList.add('highlighted'); item.scrollIntoView({behavior:'smooth',block:'center'}); }
     }
-    function toggleResolve(commentId) {
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      if (c) { c.resolved = !c.resolved; saveProject(); renderComments(); }
+    function toggleResolve(id){
+      const arr=comments[currentProject.id][currentVersion];
+      const c=arr.find(x=>x.id===id); if(c){ c.resolved=!c.resolved; saveProject(); renderComments(); }
     }
-    function showReplyForm(commentId) {
-      document.querySelectorAll('.reply-form').forEach(f => f.remove());
-      const repliesContainer = document.querySelector(`[data-comment-id="${commentId}"] #replies-${commentId}`);
-      const replyForm = document.createElement('div');
-      replyForm.className = 'reply-form';
-      replyForm.innerHTML = `
-        <input type="text" class="reply-input" placeholder="Your name" id="reply-author-${commentId}">
-        <textarea class="reply-input" placeholder="Your reply..." id="reply-text-${commentId}"></textarea>
+    function showReplyForm(id){
+      if(viewerMode) return;
+      document.querySelectorAll('.reply-form').forEach(f=>f.remove());
+      const rc=document.getElementById(`replies-${id}`);
+      const f=document.createElement('div'); f.className='reply-form';
+      f.innerHTML=`
+        <input type="text" class="reply-input" placeholder="Your name" id="reply-author-${id}">
+        <textarea class="reply-input" placeholder="Your reply..." id="reply-text-${id}"></textarea>
         <div class="reply-actions">
-          <button class="btn btn-sm" onclick="submitReply('${commentId}')">Reply</button>
-          <button class="btn btn-sm btn-secondary" onclick="cancelReply('${commentId}')">Cancel</button>
+          <button class="btn btn-sm" onclick="submitReply('${id}')">Reply</button>
+          <button class="btn btn-sm btn-secondary" onclick="cancelReply('${id}')">Cancel</button>
         </div>`;
-      repliesContainer.appendChild(replyForm);
-      document.getElementById(`reply-author-${commentId}`).focus();
+      rc.appendChild(f); document.getElementById(`reply-author-${id}`).focus();
     }
-    function submitReply(commentId) {
-      const author = document.getElementById(`reply-author-${commentId}`).value.trim();
-      const text = document.getElementById(`reply-text-${commentId}`).value.trim();
-      if (!author || !text) return;
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      if (c) {
-        if (!c.replies) c.replies = [];
-        c.replies.push({ id: generateCommentId(), author, text, timestamp: new Date() });
-        saveProject();
-        renderComments();
-        renderAnnotations();
-      }
+    function submitReply(id){
+      const a=document.getElementById(`reply-author-${id}`).value.trim();
+      const t=document.getElementById(`reply-text-${id}`).value.trim();
+      if(!a||!t) return;
+      const arr=comments[currentProject.id][currentVersion];
+      const c=arr.find(x=>x.id===id);
+      if(c){ if(!c.replies) c.replies=[]; c.replies.push({id:genCommentId(), author:a, text:t, timestamp:new Date()}); saveProject(); renderComments(); renderAnnotations(); }
     }
-    function cancelReply(commentId) {
-      const replyForm = document.querySelector(`#replies-${commentId} .reply-form`);
-      if (replyForm) replyForm.remove();
-    }
-    function editComment(commentId) {
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      const el = document.querySelector(`[data-comment-id="${commentId}"] .comment-text`);
-      if (c && el) {
-        const orig = c.text;
-        el.innerHTML = `
+    function cancelReply(id){ const f=document.querySelector(`#replies-${id} .reply-form`); if(f) f.remove(); }
+    function editComment(id){
+      const arr=comments[currentProject.id][currentVersion];
+      const c=arr.find(x=>x.id===id);
+      const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`);
+      if(c && el){
+        const orig=c.text;
+        el.innerHTML=`
           <div class="edit-form">
-            <textarea class="edit-input" id="edit-${commentId}">${escapeHtml(orig)}</textarea>
+            <textarea class="edit-input" id="edit-${id}">${escapeHtml(orig)}</textarea>
             <div class="reply-actions">
-              <button class="btn btn-sm" onclick="saveEdit('${commentId}')">Save</button>
-              <button class="btn btn-sm btn-secondary" onclick="cancelEdit('${commentId}', \`${escapeJsString(orig)}\`)">Cancel</button>
+              <button class="btn btn-sm" onclick="saveEdit('${id}')">Save</button>
+              <button class="btn btn-sm btn-secondary" onclick="cancelEdit('${id}', \`${escapeJs(orig)}\`)">Cancel</button>
             </div>
           </div>`;
-        document.getElementById(`edit-${commentId}`).focus();
+        document.getElementById(`edit-${id}`).focus();
       }
     }
-    function saveEdit(commentId) {
-      const newText = document.getElementById(`edit-${commentId}`).value.trim();
-      if (!newText) return;
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === commentId);
-      if (c) { c.text = newText; saveProject(); renderComments(); }
+    function saveEdit(id){
+      const val=document.getElementById(`edit-${id}`).value.trim();
+      if(!val) return;
+      const arr=comments[currentProject.id][currentVersion];
+      const c=arr.find(x=>x.id===id);
+      if(c){ c.text=val; saveProject(); renderComments(); }
     }
-    function cancelEdit(commentId, originalText) {
-      const el = document.querySelector(`[data-comment-id="${commentId}"] .comment-text`);
-      if (el) el.textContent = originalText;
-    }
-    function deleteComment(commentId) {
-      if (!confirm('Delete this comment?')) return;
-      comments[currentProject.id][currentVersion] = comments[currentProject.id][currentVersion].filter(c => c.id !== commentId);
-      saveProject();
-      renderComments();
-      renderAnnotations();
-    }
-    function editReply(parentId, replyId) {
-      // Optional: implement inline editing for replies just like comments
-      alert('Edit reply not implemented yet.');
-    }
-    function deleteReply(parentId, replyId) {
-      if (!confirm('Delete this reply?')) return;
-      const arr = comments[currentProject.id][currentVersion];
-      const c = arr.find(x => x.id === parentId);
-      if (c && c.replies) {
-        c.replies = c.replies.filter(r => r.id !== replyId);
-        saveProject();
-        renderComments();
-      }
-    }
-    function filterComments(filter) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      // Simple filter demo: could implement resolved/unresolved filters
-      renderComments();
+    function cancelEdit(id,orig){ const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`); if(el) el.textContent=orig; }
+    function deleteComment(id){
+      if(!confirm('Delete this comment?')) return;
+      comments[currentProject.id][currentVersion]=comments[currentProject.id][currentVersion].filter(c=>c.id!==id);
+      saveProject(); renderComments(); renderAnnotations();
     }
 
-    // ====== Zoom ======
-    function zoomIn() { zoomLevel = Math.min(zoomLevel * 1.2, 5); applyZoom(); }
-    function zoomOut() { zoomLevel = Math.max(zoomLevel / 1.2, 0.1); applyZoom(); }
-    function resetZoom() { zoomLevel = 1; applyZoom(); }
-    function applyZoom() { document.getElementById('mainImage').style.transform = `scale(${zoomLevel})`; }
+    // Zoom
+    function zoomIn(){ zoomLevel=Math.min(zoomLevel*1.2,5); applyZoom(); }
+    function zoomOut(){ zoomLevel=Math.max(zoomLevel/1.2,0.1); applyZoom(); }
+    function resetZoom(){ zoomLevel=1; applyZoom(); }
+    function applyZoom(){ document.getElementById('mainImage').style.transform=`scale(${zoomLevel})`; }
 
-    // ====== Storage ======
-    function saveProject() {
-      if (!currentProject) return;
-      const projectData = { project: currentProject, comments: comments[currentProject.id] || {} };
-      if (DROPBOX_CONFIG.enabled) {
-        // Keep Dropbox JSON and share link fresh
-        ensureProjectJsonSharedLink().catch(err => {
-          console.warn('Dropbox save issue. Falling back to local:', err);
-          localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
-        });
-      } else if (SERVER_CONFIG.enabled) {
-        saveProjectToServer(projectData).catch(() => {
-          localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
-        });
-      } else {
-        localStorage.setItem('project_' + currentProject.id, JSON.stringify(projectData));
-      }
+    // Persistence through Worker
+    async function saveProject(){
+      if(!currentProject) return;
+      await workerSaveProject(currentProject, comments[currentProject.id]).catch(e=>console.warn('Save failed', e.message));
     }
 
-    async function saveProjectToServer(projectData) {
-      const res = await fetch(SERVER_CONFIG.projectUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projectData) });
-      if (!res.ok) throw new Error(`Save failed: ${res.statusText}`);
-    }
+    function goBack(){ document.getElementById('dashboard').style.display='none'; document.getElementById('uploadPage').style.display='flex'; }
 
-    function loadProject(projectId) {
-      if (DROPBOX_CONFIG.enabled) return loadProjectFromLocal(projectId); // local fallback for legacy links
-      if (SERVER_CONFIG.enabled) return loadProjectFromLocal(projectId);
-      return loadProjectFromLocal(projectId);
+    // Utils
+    function generateProjectId(){ return 'proj_' + Math.random().toString(36).slice(2,11); }
+    function genCommentId(){ return 'comment_' + Math.random().toString(36).slice(2,11); }
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function escapeJs(s){ return String(s).replace(/[`\\$]/g,'\\$&'); }
+    async function copyShareLink(){
+      const text=document.getElementById('shareUrl').value;
+      try{
+        if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); }
+        else { const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
+        const btn=document.querySelector('.copy-btn'); const t=btn.textContent; btn.textContent='Copied!'; setTimeout(()=>btn.textContent=t,1500);
+      }catch{ alert('Copy failed. Select and copy manually.'); }
     }
-    function loadProjectFromLocal(projectId) {
-      const data = localStorage.getItem('project_' + projectId);
-      if (!data) return false;
-      const projectData = JSON.parse(data);
-      currentProject = projectData.project;
-      comments[projectId] = projectData.comments || {};
-      currentProject.versions.forEach(v => { if (v.file) v.url = URL.createObjectURL(v.file); });
-      return true;
+    function showUploadProgress(){
+      const el=document.getElementById('uploadArea');
+      el.innerHTML=`<div class="upload-icon">⏳</div><div class="upload-text">Uploading...</div><div class="upload-subtext">Please wait</div>`;
     }
-
-    // ====== Share link handling ======
-    async function loadFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const shared = params.get('shared'); // public JSON link
-      const projectId = params.get('project'); // legacy local-only
-      if (shared) {
-        try {
-          const direct = toDirectLink(decodeURIComponent(shared));
-          const res = await fetch(direct, { method: 'GET' });
-          if (!res.ok) throw new Error(`Failed to fetch shared JSON: ${res.status}`);
-          const data = await res.json();
-          currentProject = data.project;
-          comments[currentProject.id] = data.comments || {};
-          currentVersion = currentProject.versions.length;
-          // Ensure we show the same shared URL when viewing
-          if (!currentProject.sharedJsonUrl) currentProject.sharedJsonUrl = direct;
-          showDashboard();
-          return;
-        } catch (err) {
-          console.error('Shared load error:', err);
-          alert('This shared link may have expired or is invalid.');
-        }
-      }
-      if (projectId && loadProject(projectId)) {
-        currentVersion = currentProject.versions.length;
-        showDashboard();
-      }
-    }
-
-    // ====== Utils ======
-    function generateProjectId() { return 'proj_' + Math.random().toString(36).slice(2, 11); }
-    function generateCommentId() { return 'comment_' + Math.random().toString(36).slice(2, 11); }
-    function formatDate(date) { return new Date(date).toLocaleString(); }
-    function goBack() { document.getElementById('dashboard').style.display = 'none'; document.getElementById('uploadPage').style.display = 'flex'; }
-    function escapeHtml(str) { return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
-    function escapeJsString(str) { return String(str).replace(/[`\\$]/g, '\\$&'); }
-
-    async function copyTextToClipboard(text) {
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(text);
-          return true;
-        } else {
-          const ta = document.createElement('textarea');
-          ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.select();
-          const ok = document.execCommand('copy');
-          document.body.removeChild(ta);
-          return ok;
-        }
-      } catch { return false; }
-    }
-    async function copyShareLink() {
-      const shareUrl = document.getElementById('shareUrl').value;
-      const btn = document.querySelector('.copy-btn');
-      const original = btn.textContent;
-      const ok = await copyTextToClipboard(shareUrl);
-      btn.textContent = ok ? 'Copied!' : 'Copy failed';
-      setTimeout(() => { btn.textContent = original; }, 2000);
-    }
-
-    // ====== Upload progress UI ======
-    function showUploadProgress() {
-      const uploadArea = document.getElementById('uploadArea');
-      uploadArea.innerHTML = `
-        <div class="upload-icon">⏳</div>
-        <div class="upload-text" style="color:#fff;">Uploading...</div>
-        <div class="upload-subtext" style="color:rgba(255,255,255,0.7);">Please wait while your image is being uploaded</div>`;
-    }
-    function hideUploadProgress() {
-      const uploadArea = document.getElementById('uploadArea');
-      uploadArea.innerHTML = `
-        <div class="upload-icon" style="color:rgba(255,255,255,0.6);">📁</div>
-        <div class="upload-text" style="color:#fff;">Drag & drop your image here</div>
-        <div class="upload-subtext" style="color:rgba(255,255,255,0.7);">or click to browse files</div>`;
+    function hideUploadProgress(){
+      const el=document.getElementById('uploadArea');
+      el.innerHTML=`<div class="upload-icon">📁</div><div class="upload-text">Drag & drop your image here</div><div class="upload-subtext">or click to browse files</div>`;
     }
   </script>
 </body>
