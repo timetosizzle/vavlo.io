@@ -160,9 +160,8 @@
   </div>
 
   <script>
-    // Point this to your deployed Worker URL later, for example:
-    // const WORKER_BASE = "https://vavlo-worker.yourname.workers.dev";
-    const WORKER_BASE = "";
+    // Worker base URL
+    const WORKER_BASE = "https://vavlo-worker.bear-8c2.workers.dev";
 
     // State
     let currentProject = null;
@@ -293,7 +292,7 @@
       }
     }
 
-    // UI and comments (same as before)
+    // UI and comments
     function showDashboard(){
       document.getElementById('uploadPage').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
