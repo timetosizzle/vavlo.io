@@ -403,7 +403,6 @@
     }
     
     function submitComment(){
-      if(viewerMode) return;
       const author=document.getElementById('authorName').value.trim();
       const text=document.getElementById('commentText').value.trim();
       if(!author||!text||!pendingCommentPosition) return;
