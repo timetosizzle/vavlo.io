@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dropbox Refresh Token - Finish</title>
+  <style>body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;padding:24px;max-width:720px;margin:auto}pre{background:#f7f7f7;padding:12px;border-radius:6px;overflow:auto}</style>
+</head>
+<body>
+  <h2>Dropbox OAuth Finished</h2>
+  <div id="status">Exchanging code for tokens...</div>
+  <div id="result"></div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const appKey = localStorage.getItem('dbx_app_key');
+    const verifier = localStorage.getItem('dbx_pkce_verifier');
+    const redirectUri = "https://vavlo.io/finish.html";
+
+    async function run(){
+      if(!code){ document.getElementById('status').textContent = 'Missing ?code in URL'; return; }
+      if(!appKey || !verifier){ document.getElementById('status').textContent = 'Missing PKCE state. Start from get-refresh.html'; return; }
+      try{
+        const body = new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: appKey,     // PKCE does not need client_secret
+          code,
+          code_verifier: verifier,
+          redirect_uri: redirectUri
+        });
+        const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+          body
+        });
+        const txt = await res.text();
+        const el = document.getElementById('result');
+        if(!res.ok){ document.getElementById('status').textContent='Error'; el.innerHTML = '<pre>'+txt+'</pre>'; return; }
+        const data = JSON.parse(txt);
+        document.getElementById('status').textContent = 'Success. Copy your refresh token:';
+        el.innerHTML = `
+          <p><b>REFRESH TOKEN</b></p>
+          <pre>${data.refresh_token}</pre>
+          <p>Put that into Cloudflare Worker as <code>DROPBOX_REFRESH_TOKEN</code>.</p>
+          <p>Access token (short-lived):</p>
+          <pre>${data.access_token}</pre>
+        `;
+        // Clean up sensitive state
+        localStorage.removeItem('dbx_pkce_verifier');
+      }catch(e){
+        document.getElementById('status').textContent = 'Error';
+        document.getElementById('result').innerHTML = '<pre>'+String(e)+'</pre>';
+      }
+    }
+    run();
+  </script>
+</body>
+</html>
