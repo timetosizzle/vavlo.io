@@ -54,9 +54,8 @@
     .copy-btn{background:var(--brand-accent);color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px}
     .main-content{display:flex;height:calc(100vh - 73px)}
     .image-container{flex:1;position:relative;overflow:hidden;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
-    .image-wrapper{position:relative;max-width:100%;max-height:100%;cursor:crosshair}
+    .image-wrapper{position:relative;max-width:100%;max-height:100%;cursor:crosshair;transform-origin:center center}
     .main-image{max-width:100%;max-height:100%;object-fit:contain;user-select:none;transition:transform .2s ease}
-    /* Removed floating .zoom-controls overlay */
 
     .annotation-marker{position:absolute;width:12px;height:12px;background:var(--brand-accent);border:2px solid #fff;border-radius:50%;cursor:pointer;transform:translate(-50%,-50%);z-index:10;box-shadow:0 2px 8px var(--brand-accent-strong);transition:.2s}
     .annotation-marker:hover{transform:translate(-50%,-50%) scale(1.2);background:var(--brand-accent-hover)}
@@ -75,11 +74,12 @@
     .comment-item.highlighted{background:var(--brand-accent-medium);margin:0 -16px;padding:16px;border-radius:8px}
     .comment-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
     .comment-author{font-weight:600;font-size:14px}
-    .comment-number{display:inline-block;width:20px;height:20px;background:var(--brand-accent);color:#fff;border-radius:50%;text-align:center;line-height:20px;font-size:12px;margin-right:8px}
+    .comment-number{display:inline-block;width:24px;height:24px;background:var(--brand-accent);color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;margin-right:12px}
     .comment-time{font-size:12px;color:var(--brand-text-subtle)}
     .comment-text{font-size:14px;line-height:1.4;margin-bottom:8px}
     .comment-actions{display:flex;gap:8px;font-size:12px}
-    .action-btn{background:none;border:none;color:var(--brand-accent);cursor:pointer;padding:0}
+    .action-btn{background:none;border:none;color:#fff;cursor:pointer;padding:0}
+    .action-btn:hover{text-decoration:underline}
     .reply-form,.edit-form{margin-top:12px;padding:12px;background:var(--brand-surface);border-radius:6px;border:1px solid var(--brand-border)}
     .reply-input,.edit-input{width:100%;padding:8px;border:1px solid var(--brand-border-strong);border-radius:4px;font-size:14px;resize:vertical;min-height:60px;background:var(--brand-surface);color:#fff}
     .new-comment-form{padding:24px;border-top:1px solid var(--brand-border);background:var(--brand-surface)}
@@ -88,6 +88,7 @@
     .form-input{width:100%;padding:10px;border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px;background:var(--brand-surface);color:#fff}
     .upload-new-version{padding:10px 12px;border:2px dashed var(--brand-border-dashed);border-radius:8px;text-align:center;cursor:pointer;color:#fff}
     .upload-new-version:hover{border-color:var(--brand-accent);background:var(--brand-accent-light)}
+    .shared-mode-indicator{font-size:12px;color:var(--brand-text-subtle);background:var(--brand-accent-light);padding:6px 12px;border-radius:6px}
   </style>
 </head>
 <body>
@@ -123,7 +124,7 @@
           <input type="text" id="shareUrl" readonly/>
           <button class="copy-btn" onclick="copyShareLink()">Copy</button>
         </div>
-        <div id="expiresBadge" style="font-size:12px;color:var(--brand-text-subtle);"></div>
+        <div id="expiresBadge" class="shared-mode-indicator"></div>
         <div class="upload-new-version" id="uploadVersionBtn">+ Upload New Version</div>
         <input type="file" id="newVersionInput" accept="image/*" class="hidden"/>
       </div>
@@ -204,7 +205,11 @@
 
       document.getElementById('imageWrapper').addEventListener('click', handleImageClick);
       document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
-      uploadVersionBtn.addEventListener('click', () => document.getElementById('newVersionInput').click());
+      uploadVersionBtn.addEventListener('click', () => {
+        if (!viewerMode) {
+          document.getElementById('newVersionInput').click();
+        }
+      });
     }
 
     // Worker API helpers
@@ -257,6 +262,7 @@
 
     // Add version
     async function addNewVersion(file){
+      if (viewerMode) return;
       try{
         showUploadProgress();
         const newVersionId = currentProject.versions.length + 1;
@@ -289,7 +295,7 @@
           currentProject = data.project;
           comments[currentProject.id] = data.comments || {};
           currentVersion = currentProject.versions.length;
-          showDashboard(true);
+          showDashboard();
         }catch{
           alert('This shared link may have expired or is invalid.');
         }
@@ -308,9 +314,16 @@
       updateExpiresBadge();
 
       const newForm = document.getElementById('newCommentForm');
-      const uploadBtn = document.getElementById('uploadVersionBtn');
-      if(viewerMode){ newForm.style.display = 'none'; uploadBtn.style.display = 'none'; }
-      else { newForm.style.display = 'none'; uploadBtn.style.display = 'block'; }
+      if(viewerMode){ 
+        newForm.style.display = 'none';
+        // Show viewer mode indicator but still keep upload button visible
+        document.getElementById('uploadVersionBtn').style.opacity = '0.5';
+        document.getElementById('uploadVersionBtn').style.cursor = 'not-allowed';
+      } else { 
+        newForm.style.display = 'none';
+        document.getElementById('uploadVersionBtn').style.opacity = '1';
+        document.getElementById('uploadVersionBtn').style.cursor = 'pointer';
+      }
     }
 
     function updateShareUrlBox(){
@@ -334,21 +347,37 @@
     }
     function loadVersion(id){
       const v=currentProject.versions.find(x=>x.id===Number(id)); if(!v) return;
-      const img=document.getElementById('mainImage'); img.src=v.url; img.onload=()=>{ resetZoom(); renderAnnotations(); setTimeout(applyZoom,100); };
+      const img=document.getElementById('mainImage'); 
+      img.src=v.url; 
+      img.onload=()=>{ 
+        resetZoom(); 
+        setTimeout(() => {
+          renderAnnotations(); 
+          applyZoom();
+        }, 100);
+      };
     }
     function handleVersionChange(e){ currentVersion=parseInt(e.target.value,10); loadVersion(currentVersion); renderComments(); }
 
     // Comments
     function handleImageClick(e){
-      if(viewerMode) return;
-      const img=document.getElementById('mainImage');
-      const r=img.getBoundingClientRect();
-      const x=((e.clientX-r.left)/r.width)*100, y=((e.clientY-r.top)/r.height)*100;
-      if(x<0||x>100||y<0||y>100) return;
-      isAddingComment=true; pendingCommentPosition={x,y};
-      document.getElementById('newCommentForm').style.display='block';
+      if(viewerMode || isAddingComment) return;
+      
+      const img = document.getElementById('mainImage');
+      const imgRect = img.getBoundingClientRect();
+      
+      // Calculate position relative to the actual image, accounting for zoom
+      const x = ((e.clientX - imgRect.left) / imgRect.width) * 100;
+      const y = ((e.clientY - imgRect.top) / imgRect.height) * 100;
+      
+      if(x < 0 || x > 100 || y < 0 || y > 100) return;
+      
+      isAddingComment = true; 
+      pendingCommentPosition = {x, y};
+      document.getElementById('newCommentForm').style.display = 'block';
       document.getElementById('authorName').focus();
     }
+    
     function submitComment(){
       if(viewerMode) return;
       const author=document.getElementById('authorName').value.trim();
@@ -364,11 +393,21 @@
       saveProject();
       renderComments(); renderAnnotations();
     }
-    function cancelComment(){ isAddingComment=false; pendingCommentPosition=null; document.getElementById('newCommentForm').style.display='none'; }
+    function cancelComment(){ 
+      isAddingComment=false; 
+      pendingCommentPosition=null; 
+      document.getElementById('newCommentForm').style.display='none';
+      document.getElementById('authorName').value=''; 
+      document.getElementById('commentText').value='';
+    }
     function renderComments(){
       const container=document.getElementById('commentsContainer');
       const arr=comments[currentProject.id]?.[currentVersion]||[];
-      if(!arr.length){ container.innerHTML='<div class="upload-subtext" style="padding:24px;">No comments yet. Click the image to add one.</div>'; return; }
+      if(!arr.length){ 
+        const noCommentsText = viewerMode ? 'No comments available.' : 'No comments yet. Click the image to add one.';
+        container.innerHTML=`<div class="upload-subtext" style="padding:24px;">${noCommentsText}</div>`; 
+        return; 
+      }
       container.innerHTML=''; arr.forEach((c,i)=>container.appendChild(commentEl(c,i+1)));
     }
     function commentEl(c,n){
@@ -402,15 +441,25 @@
       return d;
     }
     function renderAnnotations(){
+      // Remove existing markers
       document.querySelectorAll('.annotation-marker').forEach(m=>m.remove());
+      
       const arr=comments[currentProject.id]?.[currentVersion]||[];
-      const wrap=document.getElementById('imageWrapper');
+      const img = document.getElementById('mainImage');
+      
       arr.forEach(c=>{
-        const m=document.createElement('div'); m.className='annotation-marker'; m.dataset.commentId=c.id;
-        m.style.left=c.position.x+'%'; m.style.top=c.position.y+'%';
+        const m=document.createElement('div'); 
+        m.className='annotation-marker'; 
+        m.dataset.commentId=c.id;
+        
+        // Position relative to the image itself
+        m.style.left=c.position.x+'%'; 
+        m.style.top=c.position.y+'%';
         m.title = `${c.author}: ${c.text.slice(0,50)}${c.text.length>50?'...':''}`;
         m.addEventListener('click',e=>{e.stopPropagation(); highlightAnnotation(c.id);});
-        wrap.appendChild(m);
+        
+        // Append to the image wrapper so it scales with zoom
+        document.getElementById('imageWrapper').appendChild(m);
       });
     }
     function highlightAnnotation(id){
@@ -422,6 +471,7 @@
       if(item){ item.classList.add('highlighted'); item.scrollIntoView({behavior:'smooth',block:'center'}); }
     }
     function toggleResolve(id){
+      if(viewerMode) return;
       const arr=comments[currentProject.id][currentVersion];
       const c=arr.find(x=>x.id===id); if(c){ c.resolved=!c.resolved; saveProject(); renderComments(); }
     }
@@ -449,6 +499,7 @@
     }
     function cancelReply(id){ const f=document.querySelector(`#replies-${id} .reply-form`); if(f) f.remove(); }
     function editComment(id){
+      if(viewerMode) return;
       const arr=comments[currentProject.id][currentVersion];
       const c=arr.find(x=>x.id===id);
       const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`);
@@ -474,24 +525,41 @@
     }
     function cancelEdit(id,orig){ const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`); if(el) el.textContent=orig; }
     function deleteComment(id){
+      if(viewerMode) return;
       if(!confirm('Delete this comment?')) return;
       comments[currentProject.id][currentVersion]=comments[currentProject.id][currentVersion].filter(c=>c.id!==id);
       saveProject(); renderComments(); renderAnnotations();
     }
 
     // Zoom
-    function zoomIn(){ zoomLevel=Math.min(zoomLevel*1.2,5); applyZoom(); }
-    function zoomOut(){ zoomLevel=Math.max(zoomLevel/1.2,0.1); applyZoom(); }
-    function resetZoom(){ zoomLevel=1; applyZoom(); }
-    function applyZoom(){ document.getElementById('mainImage').style.transform=`scale(${zoomLevel})`; }
+    function zoomIn(){ 
+      zoomLevel=Math.min(zoomLevel*1.2,5); 
+      applyZoom(); 
+    }
+    function zoomOut(){ 
+      zoomLevel=Math.max(zoomLevel/1.2,0.1); 
+      applyZoom(); 
+    }
+    function resetZoom(){ 
+      zoomLevel=1; 
+      applyZoom(); 
+    }
+    function applyZoom(){ 
+      const wrapper = document.getElementById('imageWrapper');
+      wrapper.style.transform = `scale(${zoomLevel})`;
+    }
 
     // Persistence through Worker
     async function saveProject(){
-      if(!currentProject) return;
+      if(!currentProject || viewerMode) return;
       await workerSaveProject(currentProject, comments[currentProject.id]).catch(e=>console.warn('Save failed', e.message));
     }
 
-    function goBack(){ document.getElementById('dashboard').style.display='none'; document.getElementById('uploadPage').style.display='flex'; }
+    function goBack(){ 
+      document.getElementById('dashboard').style.display='none'; 
+      document.getElementById('uploadPage').style.display='flex'; 
+      viewerMode = false;
+    }
 
     // Utils
     function generateProjectId(){ return 'proj_' + Math.random().toString(36).slice(2,11); }
@@ -513,6 +581,13 @@
     function hideUploadProgress(){
       const el=document.getElementById('uploadArea');
       el.innerHTML=`<div class="upload-icon">📁</div><div class="upload-text">Drag & drop your image here</div><div class="upload-subtext">or click to browse files</div>`;
+    }
+    function filterComments(filter) {
+      // Update tab styles
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      // Filter logic would go here - for now just re-render all
+      renderComments();
     }
   </script>
 </body>
