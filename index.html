@@ -584,7 +584,8 @@
 
     // Persistence through Worker
     async function saveProject(){
-      if(!currentProject || viewerMode) return;
+      if(!currentProject) return;
+      // Always save changes, even in viewer mode (for comment interactions)
       await workerSaveProject(currentProject, comments[currentProject.id]).catch(e=>console.warn('Save failed', e.message));
     }
 
