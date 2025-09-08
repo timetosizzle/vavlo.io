@@ -1,4 +1,5 @@
-// worker.js - Cloudflare Worker (modules syntax)
+// worker.js - Cloudflare Worker (modules syntax) with PKCE-first token exchange,
+// fallback to client_secret, and a verbose debug endpoint.
 
 export default {
   async fetch(req, env) {
@@ -8,18 +9,35 @@ export default {
     if (req.method === "OPTIONS") return cors(new Response("", { status: 204 }));
 
     try {
+      // Root info
+      if (url.pathname === "/" && req.method === "GET") {
+        return cors(json({
+          ok: true,
+          message: "Vavlo Worker online",
+          endpoints: ["/health", "/debug-token", "/debug-token-verbose", "/upload (POST)", "/save-project (POST)"],
+          root: env.ROOT,
+          ttlDays: env.TTL_DAYS
+        }));
+      }
+
       // Diagnostics
-      if (url.pathname === "/health") {
+      if (url.pathname === "/health" && req.method === "GET") {
         return cors(json({ ok: true, root: env.ROOT, ttlDays: env.TTL_DAYS }));
       }
-      if (url.pathname === "/debug-token") {
+
+      if (url.pathname === "/debug-token" && req.method === "GET") {
         try {
           const token = await getAccessToken(env);
           return cors(json({ ok: true, tokenPreview: mask(token) }));
-        } catch (e) {
-          console.error("debug-token error:", e?.message || String(e));
+        } catch {
           return cors(json({ ok: false, error: "Token exchange failed" }, 500));
         }
+      }
+
+      if (url.pathname === "/debug-token-verbose" && req.method === "GET") {
+        const out = await debugAccessToken(env);
+        const status = out.ok ? 200 : 500;
+        return cors(json(out, status));
       }
 
       // Upload image
@@ -36,7 +54,7 @@ export default {
         return cors(json({ imageUrl: toDirect(link.url) }));
       }
 
-      // Save project JSON (project + comments)
+      // Save project JSON
       if (url.pathname === "/save-project" && req.method === "POST") {
         const token = await getAccessToken(env);
         const body = await req.json().catch(() => ({}));
@@ -49,14 +67,14 @@ export default {
         return cors(json({ sharedJsonUrl: toDirect(link.url) }));
       }
 
-      return cors(new Response("Not found", { status: 404 }));
+      return cors(json({ error: "Not found" }, 404));
     } catch (e) {
       console.error("Worker error:", e?.message || String(e));
       return cors(json({ error: e?.message || String(e) }, 500));
     }
   },
 
-  // Daily cleanup of files older than TTL_DAYS
+  // Daily cleanup
   async scheduled(event, env, ctx) {
     try {
       const token = await getAccessToken(env);
@@ -68,11 +86,8 @@ export default {
       );
 
       for (const f of oldFiles) {
-        try {
-          await dbx(token, "files/delete_v2", { path: f.path_lower });
-        } catch (err) {
-          console.error("Delete failed", f.path_lower, err);
-        }
+        try { await dbx(token, "files/delete_v2", { path: f.path_lower }); }
+        catch (err) { console.error("Delete failed", f.path_lower, err); }
       }
     } catch (e) {
       console.error("Cron error", e);
@@ -80,49 +95,107 @@ export default {
   }
 };
 
-/* ===== OAuth: exchange refresh token for short-lived access token =====
+/* OAuth: refresh token -> short-lived access token
    Secrets required:
-   - DROPBOX_REFRESH_TOKEN  from finish.html (refresh_token value)
-   - DROPBOX_APP_KEY        your Dropbox App key
+   - DROPBOX_REFRESH_TOKEN  from finish.html (refresh_token)
+   - DROPBOX_APP_KEY        App key of the same app that issued the refresh token
+   Optional secret for fallback:
+   - DROPBOX_APP_SECRET     App secret (if present, we will try secret-based exchange second)
    Text vars:
    - ROOT = /ImageAnnotationTool
    - TTL_DAYS = 90
 */
 async function getAccessToken(env) {
-  const params = new URLSearchParams({
+  // Try PKCE-style refresh first
+  const pkceParams = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: env.DROPBOX_REFRESH_TOKEN,
     client_id: env.DROPBOX_APP_KEY
   });
 
-  const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+  const pkceRes = await fetch("https://api.dropboxapi.com/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params
+    body: pkceParams
   });
 
-  const txt = await res.text();
-  if (!res.ok) {
-    console.error("Token exchange failed:", txt.slice(0, 300));
-    throw new Error("Token exchange failed");
+  let txt = await pkceRes.text();
+  if (pkceRes.ok) {
+    const data = safeJson(txt, "Token parse error (PKCE)");
+    if (!data.access_token) throw new Error("No access_token returned (PKCE)");
+    return data.access_token;
   }
 
-  let data;
-  try { data = JSON.parse(txt); }
-  catch {
-    console.error("Token parse error:", txt.slice(0, 300));
-    throw new Error("Token parse error");
+  // If PKCE failed and we have a client secret, try secret-based refresh
+  if (env.DROPBOX_APP_SECRET) {
+    const secretParams = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: env.DROPBOX_REFRESH_TOKEN,
+      client_id: env.DROPBOX_APP_KEY,
+      client_secret: env.DROPBOX_APP_SECRET
+    });
+
+    const secretRes = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: secretParams
+    });
+
+    txt = await secretRes.text();
+    if (secretRes.ok) {
+      const data = safeJson(txt, "Token parse error (secret)");
+      if (!data.access_token) throw new Error("No access_token returned (secret)");
+      return data.access_token;
+    }
   }
 
-  if (!data.access_token || typeof data.access_token !== "string") {
-    console.error("No access_token in response:", txt.slice(0, 300));
-    throw new Error("No access_token returned");
-  }
-
-  return data.access_token;
+  // Both attempts failed
+  console.error("Token exchange failed:", txt.slice(0, 300));
+  throw new Error("Token exchange failed");
 }
 
-/* ===== Dropbox helpers (token is always a short-lived access token) ===== */
+// Verbose debug endpoint logic
+async function debugAccessToken(env) {
+  const pkceParams = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: env.DROPBOX_REFRESH_TOKEN,
+    client_id: env.DROPBOX_APP_KEY
+  });
+
+  const pkceRes = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: pkceParams
+  });
+
+  let pkceText = await pkceRes.text();
+  if (pkceRes.ok) return { ok: true, method: "pkce", tokenPreview: mask(safeJson(pkceText).access_token) };
+
+  let out = { ok: false, pkceError: pkceText.slice(0, 400) };
+
+  if (env.DROPBOX_APP_SECRET) {
+    const secretParams = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: env.DROPBOX_REFRESH_TOKEN,
+      client_id: env.DROPBOX_APP_KEY,
+      client_secret: env.DROPBOX_APP_SECRET
+    });
+
+    const secretRes = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: secretParams
+    });
+    let secretText = await secretRes.text();
+    if (secretRes.ok) return { ok: true, method: "secret", tokenPreview: mask(safeJson(secretText).access_token) };
+
+    out.secretError = secretText.slice(0, 400);
+  }
+
+  return out;
+}
+
+/* Dropbox helpers */
 async function dbx(token, api, body, content = "application/json") {
   const res = await fetch("https://api.dropboxapi.com/2/" + api, {
     method: "POST",
@@ -134,11 +207,7 @@ async function dbx(token, api, body, content = "application/json") {
     console.error("DBX API error", api, txt.slice(0, 300));
     throw new Error(txt);
   }
-  try { return JSON.parse(txt); }
-  catch {
-    console.error("DBX API JSON parse error", api, txt.slice(0, 300));
-    throw new Error("Dropbox response parse error");
-  }
+  return safeJson(txt, "Dropbox response parse error");
 }
 
 async function dbxUpload(token, path, content) {
@@ -156,15 +225,10 @@ async function dbxUpload(token, path, content) {
     console.error("DBX upload error", path, txt.slice(0, 300));
     throw new Error(txt);
   }
-  try { return JSON.parse(txt); }
-  catch {
-    console.error("DBX upload parse error", path, txt.slice(0, 300));
-    throw new Error("Dropbox upload parse error");
-  }
+  return safeJson(txt, "Dropbox upload parse error");
 }
 
 async function getOrCreateSharedLink(token, path, expiresISO) {
-  // Try to create with expiration
   const create = await fetch("https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -179,7 +243,6 @@ async function getOrCreateSharedLink(token, path, expiresISO) {
     throw new Error(text);
   }
 
-  // Reuse existing link without changing expiration
   const list = await dbx(token, "sharing/list_shared_links", { path, direct_only: true });
   if (!list.links?.length) {
     console.error("No existing link found for", path);
@@ -203,7 +266,7 @@ async function listAll(token, root) {
   return entries;
 }
 
-/* ===== Utils ===== */
+/* Utils */
 function toDirect(url) {
   return url
     .replace("www.dropbox.com", "dl.dropboxusercontent.com")
@@ -228,4 +291,7 @@ function cors(res) {
 function mask(s) {
   if (!s) return "";
   return s.slice(0, 6) + "..." + s.slice(-4);
+}
+function safeJson(txt, msg = "Parse error") {
+  try { return JSON.parse(txt); } catch { throw new Error(msg + ": " + txt.slice(0, 200)); }
 }
