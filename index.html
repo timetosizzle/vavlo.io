@@ -7,8 +7,10 @@ QUICK NAV
 [STATE]  App State ............ search: [SEC:STATE]
 [UI]     Zoom Controls ........ search: [SEC:ZOOM]
 [UI]     Version Dropdown ..... search: [SEC:VERSIONS]
+[UI]     Filters & Forms ...... search: [SEC:FILTERS]
 [ACTIONS] Comment Actions ..... search: [SEC:ACTIONS]
 [RENDER] Markers & Comments ... search: [SEC:RENDER]
+[SHARE]  Save/Load/Links ...... search: [SEC:SHARECODE]
 [UTIL]   Helpers .............. search: [SEC:UTIL]
 -->
 <!DOCTYPE html>
@@ -19,116 +21,110 @@ QUICK NAV
   <title>Vavlo - Image Annotation Tool</title>
   <style>
     :root{
-      --bg:#0f1221;
-      --panel:#171a2c;
-      --panel-2:#1f2340;
-      --line:#2b315a;
-      --text:#e7e9ff;
-      --muted:#a6abd3;
-      --pink:#ff2b85;
-      --pink-600:#e32676;
-      --gray:#6b7280; /* medium gray */
-      --danger:#ef4444;
-      --ok:#10b981;
-      --yellow:#f59e0b;
+      --bg:#0f1221; --panel:#171a2c; --panel-2:#1f2340; --line:#2b315a; --text:#e7e9ff; --muted:#a6abd3; --pink:#ff2b85; --gray:#6b7280; --danger:#ef4444; --ok:#10b981; --blue:#3b82f6; --violet:#8b5cf6; --yellow:#f59e0b;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0; background:var(--bg); color:var(--text); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
-    }
+    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial}
     a{color:inherit}
+    .sr{position:absolute;left:-9999px}
 
-    /* Top bar */
-    .topbar{
-      display:flex; align-items:center; gap:16px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line);
-      position:sticky; top:0; z-index:50;
-    }
-    .brand{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px}
+    /* ===== LAYOUT: TOPBAR ===== */
+    /* [SEC:TOPBAR] */
+    .topbar{display:flex;align-items:center;gap:16px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.3px}
     .brand img{height:22px}
     .spacer{flex:1}
-    .versions{display:flex; align-items:center; gap:8px}
-    select, .btn{ appearance:none; border:1px solid var(--line); background:var(--panel-2); color:var(--text); border-radius:8px; padding:8px 10px; cursor:pointer }
-    select:focus, .btn:focus{ outline:2px solid var(--pink); outline-offset:2px }
+    select,.btn,input[type="text"],textarea{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);border-radius:8px;padding:8px 10px}
+    select:focus,.btn:focus,input:focus,textarea:focus{outline:2px solid var(--pink);outline-offset:2px}
+    .btn{cursor:pointer}
+    .icon-btn{width:34px;height:34px;display:inline-grid;place-items:center;border-radius:8px}
 
-    .zoom-group{display:flex; align-items:center; gap:8px}
-    .icon-btn{width:34px; height:34px; display:inline-grid; place-items:center; border-radius:8px}
+    /* ===== SHARE STRIP ===== */
+    /* [SEC:SHARE] */
+    .share-strip{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+    .btn.primary{background:var(--pink);border-color:transparent}
 
-    /* Share strip */
-    .share-strip{display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--panel-2); border-bottom:1px solid var(--line)}
-    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line); border-radius:999px; color:var(--muted)}
-    .share-strip .btn{background:transparent}
-    .btn.primary{background:var(--pink); border-color:transparent}
+    /* ===== LAYOUT WRAP ===== */
+    .wrap{display:grid;grid-template-columns:1fr 380px;height:calc(100% - 94px)}
+    .canvas-area{position:relative;overflow:auto;background:radial-gradient(1200px 1200px at 50% -10%, #1a1f3e, #0f1221 60%)}
+    .sidebar{border-left:1px solid var(--line);background:var(--panel);overflow:auto}
 
-    /* Layout */
-    .wrap{display:grid; grid-template-columns: 1fr 360px; height:calc(100% - 94px)}
-    .canvas-area{position:relative; overflow:auto; background:radial-gradient(1200px 1200px at 50% -10%, #1a1f3e, #0f1221 60%)}
-    .sidebar{border-left:1px solid var(--line); background:var(--panel); overflow:auto}
-
-    /* Drop zone */
-    .dropzone{border:2px dashed var(--line); border-radius:16px; padding:24px; margin:16px; text-align:center; background:rgba(255,255,255,0.02)}
-    .dropzone .logo{display:block; margin:0 auto 12px auto; height:42px}
+    /* ===== DROP ZONE ===== */
+    .dropzone{border:2px dashed var(--line);border-radius:16px;padding:24px;margin:16px;text-align:center;background:rgba(255,255,255,0.02)}
+    .dropzone .logo{display:block;margin:0 auto 12px auto;height:42px}
     .dropzone h3{margin:6px 0 4px 0}
     .muted{color:var(--muted)}
 
-    /* Image stage */
-    .stage{position:relative; margin:16px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#0c0f22}
-    .image-viewport{ position:relative; width:100%; height:72vh; overflow:auto; background:#0c0f22 }
-    .image-inner{ position:relative; transform-origin: top left; }
-    .image-inner img{ display:block; max-width:none; /* we control size via scale */ }
+    /* ===== STAGE & IMAGE ===== */
+    /* [SEC:STAGE] */
+    .stage{position:relative;margin:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0c0f22}
+    .image-viewport{position:relative;width:100%;height:72vh;overflow:auto;background:#0c0f22}
+    .image-inner{position:relative;transform-origin:top left}
+    .image-inner img{display:block;max-width:none}
 
-    /* Markers */
-    .marker{ position:absolute; width:22px; height:22px; border-radius:999px; display:grid; place-items:center; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.35); transform: translate(-50%, -50%); }
-    .marker.unresolved{ background:var(--pink) }
-    .marker.resolved{ background:var(--gray) }
+    /* ===== MARKERS ===== */
+    .marker{position:absolute;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%)}
+    .marker.unresolved{background:var(--pink)}
+    .marker.resolved{background:var(--gray)}
+    .marker.active{outline:3px solid rgba(255,255,255,.35)}
+    .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%, -120%);white-space:nowrap}
 
-    /* Sidebar comments */
-    .side-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--line) }
-    .comments{ padding:8px 10px }
-    .comment{ border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; background:var(--panel-2)}
-    .comment .row{ display:flex; align-items:center; gap:8px; margin-bottom:6px }
-    .badge{ background:var(--pink); color:#fff; font-weight:800; padding:2px 8px; border-radius:999px }
-    .badge.resolved{ background:var(--gray) }
-    .comment .meta{ color:var(--muted); font-size:12px }
-    .comment .text{ margin:6px 0 10px 0 }
-    .comment-actions{ display:flex; flex-wrap:wrap; gap:6px }
-    .comment-actions .btn{ color:#fff; border:none }
-    .btn.resolve.unresolved{ background:var(--pink) }
-    .btn.resolve.resolved{ background:var(--gray) }
-    .btn.reply{ background:#3b82f6 }
-    .btn.edit{ background:#8b5cf6 }
-    .btn.delete{ background:var(--danger) }
+    /* ===== SIDEBAR ===== */
+    /* [SEC:SIDEBAR] */
+    .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+    .filters{display:flex;gap:8px;align-items:center}
+    .comments{padding:8px 10px}
+    .comment{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--panel-2)}
+    .comment.resolved{background:#22263e}
+    .comment .row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .badge{background:var(--pink);color:#fff;font-weight:800;padding:2px 8px;border-radius:999px}
+    .badge.resolved{background:var(--gray)}
+    .comment .meta{color:var(--muted);font-size:12px}
+    .comment .text{margin:6px 0 10px 0}
+    .comment .reply-area{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+    .reply{border-left:3px solid var(--line);margin:6px 0 0 8px;padding-left:8px}
 
-    /* Small helpers */
-    .sr{position:absolute; left:-9999px}
+    .comment-actions{display:flex;flex-wrap:wrap;gap:6px}
+    .comment-actions .btn{color:#fff;border:none}
+    .btn.resolve.unresolved{background:var(--pink)}
+    .btn.resolve.resolved{background:var(--gray)}
+    .btn.reply{background:var(--blue)}
+    .btn.edit{background:var(--violet)}
+    .btn.delete{background:var(--danger)}
+
+    /* ===== INLINE NEW COMMENT FORM ===== */
+    .new-comment{border:1px dashed var(--line);border-radius:10px;padding:8px;margin:10px;background:#141936}
+    .form-row{display:flex;gap:8px;margin:6px 0}
+    .form-row textarea{width:100%;min-height:60px;resize:vertical}
+    .btn.small{padding:6px 10px;font-size:12px}
   </style>
 </head>
 <body>
-  <!-- Top bar with version select and zoom controls to the right of it -->
   <!-- [SEC:TOPBAR] -->
   <div class="topbar">
-    <div class="brand">
-      <img src="Vavlo - logo- white@1000x.png" alt="Vavlo" />
-      <span>Vavlo</span>
-    </div>
+    <div class="brand"><img src="Vavlo - logo- white@1000x.png" alt="Vavlo" /><span>Vavlo</span></div>
+    <!-- [SEC:VERSIONS] -->
     <div class="versions">
       <label for="version" class="sr">Version</label>
       <select id="version" title="Version" data-testid="version-select"></select>
     </div>
+    <!-- [SEC:ZOOM] -->
     <div class="zoom-group" style="margin-left:6px">
       <button class="btn icon-btn" id="zoomOut" data-testid="btn-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
       <button class="btn icon-btn" id="zoomReset" data-testid="btn-zoom-reset" title="Reset zoom" aria-label="Reset zoom">100%</button>
       <button class="btn icon-btn" id="zoomIn" data-testid="btn-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
     </div>
     <div class="spacer"></div>
-    <button class="btn">Share</button>
+    <button class="btn" id="shareBtn">Share</button>
   </div>
 
-  <!-- Share details always visible to any viewer -->
   <!-- [SEC:SHARE] -->
   <div class="share-strip">
-    <span class="pill">Expires: <strong id="expiresText">Oct 31, 2025</strong></span>
-    <button class="btn">Copy Share Link</button>
+    <span class="pill">Expires: <strong id="expiresText">—</strong></span>
+    <span class="pill">Accesses: <strong id="accessText">0</strong></span>
+    <button class="btn" id="copyShare">Copy Share Link</button>
     <button class="btn primary" id="uploadNewVersion" data-testid="btn-upload-version">Upload New Version</button>
   </div>
 
@@ -136,8 +132,9 @@ QUICK NAV
     <main class="canvas-area">
       <div class="dropzone" id="dropzone">
         <img class="logo" src="Vavlo - logo- white@1000x.png" alt="Vavlo" />
-        <h3>Drag and drop an image</h3>
-        <div class="muted">or click to choose a file</div>
+        <h3>Drag and drop your image here</h3>
+        <div class="muted">or click to browse files</div>
+        <div style="margin-top:10px"><button class="btn" id="chooseFile">Choose File</button></div>
         <input id="fileInput" type="file" accept="image/*" hidden />
       </div>
 
@@ -146,7 +143,7 @@ QUICK NAV
         <div class="image-viewport" id="viewport">
           <div class="image-inner" id="imageInner">
             <img id="img" alt="Uploaded" />
-            <!-- markers get injected here -->
+            <!-- markers injected here -->
           </div>
         </div>
       </section>
@@ -156,7 +153,15 @@ QUICK NAV
     <aside class="sidebar">
       <div class="side-head">
         <strong>Comments</strong>
-        <button class="btn" id="addDummy">Add sample</button>
+        <div class="filters">
+          <!-- [SEC:FILTERS] -->
+          <select id="filterSelect" title="Filter">
+            <option value="all">All</option>
+            <option value="unresolved" selected>Unresolved</option>
+            <option value="resolved">Resolved</option>
+          </select>
+          <input type="text" id="authorInput" placeholder="Your name" style="width:150px" />
+        </div>
       </div>
       <div id="comments" class="comments"></div>
     </aside>
@@ -170,263 +175,377 @@ QUICK NAV
     click .image-inner ................... addComment at click coords
     click [data-action=toggle-resolve] ... onToggleResolve
     click [data-action=delete] ........... onDeleteComment
+    click [data-action=reply] ............ onReply
+    click [data-action=save-new] ......... saveNewComment
+    click [data-action=cancel-new] ....... cancelNewForm
     input .text[data-id] ................. syncCommentText
+    change #filterSelect ................. applyFilter
+    change #version ...................... onSelectVersion
+    click #shareBtn ...................... onShare
+    click #copyShare ..................... copyShareLink
+    click #uploadNewVersion .............. addNewVersionFromFile
     */
 
-    // [SEC:VERSIONS]
-
-    /* Version dropdown management */
-    const versionSelect = document.getElementById('version');
-    let versions = [];
-
-    function setVersions(list){
-      const uniq = Array.from(new Set(list));
-      uniq.sort((a,b)=> (parseInt(b.replace(/\D/g,''))||0) - (parseInt(a.replace(/\D/g,''))||0));
-      versions = uniq;
-      versionSelect.innerHTML = '';
-      uniq.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        versionSelect.appendChild(opt);
-      });
-      if (versionSelect.options.length) versionSelect.selectedIndex = 0;
-    }
-
-    // Initialize with only newest once
-    setVersions(['v1']);
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const uploadBtn = document.getElementById('uploadNewVersion');
-      if (uploadBtn){
-        uploadBtn.addEventListener('click', () => {
-          const currentMax = versions.reduce((m,v)=> Math.max(m, parseInt(v.replace(/\D/g,''))||0), 0);
-          const next = `v${currentMax + 1}`;
-          setVersions([next, ...versions]);
-        });
-      }
-    });
-    /**
-     * Simple image annotation scaffold
-     * - Markers live inside .image-inner so they scale with the image
-     * - Positions are saved in image-native percentages so zoom does not drift
-     */
-
     // [SEC:STATE]
-/** @typedef {{ id:number, xPct:number, yPct:number, text:string, resolved:boolean }} CommentItem */
-/** @type {{ scale:number, minScale:number, maxScale:number, step:number, nextId:number, imgNatural:{w:number,h:number}, comments:CommentItem[] }} */
-const state = {
+    /** @typedef {{rid:number, author:string, text:string, createdAt:string}} ReplyItem */
+    /** @typedef {{ id:number, xPct:number, yPct:number, resolved:boolean, author:string, text:string, createdAt:string, replies:ReplyItem[] }} CommentItem */
+    /** @typedef {{ imageSrc:string, comments:CommentItem[], nextId:number }} VersionPayload */
+
+    /** @type {{ projectId:string|null, createdAt:string|null, expiresAt:string|null, accessCount:number, versionOrder:string[], versions:Record<string, VersionPayload>, currentVersion:string|null, sharedMode:boolean, scale:number, minScale:number, maxScale:number, step:number, imgNatural:{w:number,h:number} }} */
+    const state = {
+      projectId: null,
+      createdAt: null,
+      expiresAt: null,
+      accessCount: 0,
+      versionOrder: [],
+      versions: {},
+      currentVersion: null,
+      sharedMode: false,
       scale: 1,
       minScale: 0.5,
       maxScale: 4,
       step: 0.25,
-      nextId: 1,
       imgNatural: { w: 0, h: 0 },
-      comments: [] // {id, xPct, yPct, text, resolved}
     };
+
+    // Config for Cloudflare Worker style API
+    const WORKER_BASE = 'https://worker-url.com'; // change for production
 
     // Elements
     const dropzone = document.getElementById('dropzone');
+    const chooseFileBtn = document.getElementById('chooseFile');
     const fileInput = document.getElementById('fileInput');
     const stage = document.getElementById('stage');
     const img = document.getElementById('img');
     const imageInner = document.getElementById('imageInner');
     const viewport = document.getElementById('viewport');
     const commentsEl = document.getElementById('comments');
-
+    const filterSelect = document.getElementById('filterSelect');
+    const authorInput = document.getElementById('authorInput');
     const zoomInBtn = document.getElementById('zoomIn');
     const zoomOutBtn = document.getElementById('zoomOut');
     const zoomResetBtn = document.getElementById('zoomReset');
+    const versionSelect = document.getElementById('version');
+    const uploadBtn = document.getElementById('uploadNewVersion');
+    const expiresText = document.getElementById('expiresText');
+    const accessText = document.getElementById('accessText');
 
-    // Dropzone wiring
-    dropzone.addEventListener('click', () => fileInput.click());
+    // [SEC:VERSIONS]
+    function setVersions(list){
+      const uniq = Array.from(new Set(list));
+      uniq.sort((a,b)=> (parseInt(b.replace(/\\D/g,''))||0) - (parseInt(a.replace(/\\D/g,''))||0));
+      state.versionOrder = uniq;
+      versionSelect.innerHTML = '';
+      uniq.forEach(v => {
+        const opt = document.createElement('option'); opt.value = v; opt.textContent = v; versionSelect.appendChild(opt);
+      });
+      if (state.currentVersion == null && uniq.length){ state.currentVersion = uniq[0]; }
+      versionSelect.value = state.currentVersion || '';
+    }
+
+    function onSelectVersion(){
+      const v = versionSelect.value; if (!v) return; state.currentVersion = v; renderAll();
+    }
+
+    versionSelect.addEventListener('change', onSelectVersion);
+
+    // [SEC:ZOOM]
+    function applyScale(){ imageInner.style.transform = `scale(${state.scale})`; zoomResetBtn.textContent = Math.round(state.scale * 100) + '%'; }
+    function fitToViewport(){ if (!state.versions[state.currentVersion]) return; const vw = viewport.clientWidth-20; const vh = viewport.clientHeight-20; const sx = vw/state.imgNatural.w; const sy = vh/state.imgNatural.h; state.scale = Math.max(Math.min(sx, sy), 0.5); applyScale(); }
+    zoomInBtn.addEventListener('click', ()=>{ state.scale = Math.min(state.maxScale, +(state.scale + state.step).toFixed(2)); applyScale(); });
+    zoomOutBtn.addEventListener('click', ()=>{ state.scale = Math.max(state.minScale, +(state.scale - state.step).toFixed(2)); applyScale(); });
+    zoomResetBtn.addEventListener('click', fitToViewport);
+    window.addEventListener('resize', ()=>{ if (!stage.hidden) fitToViewport(); });
+
+    // Uploads
+    chooseFileBtn.addEventListener('click', ()=> fileInput.click());
+    dropzone.addEventListener('click', ()=> fileInput.click());
     dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--pink)'; });
-    dropzone.addEventListener('dragleave', e => { dropzone.style.borderColor = 'var(--line)'; });
-    dropzone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropzone.style.borderColor = 'var(--line)';
-      const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) loadImageFile(file);
-    });
-    fileInput.addEventListener('change', e => {
-      const file = e.target.files && e.target.files[0];
-      if (file) loadImageFile(file);
-    });
+    dropzone.addEventListener('dragleave', ()=> { dropzone.style.borderColor = 'var(--line)'; });
+    dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--line)'; const file = e.dataTransfer.files && e.dataTransfer.files[0]; if (file) addNewVersionFromFile(file); });
+    fileInput.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; if (file) addNewVersionFromFile(file); });
 
-    function loadImageFile(file){
+    async function addNewVersionFromFile(fileOrEvent){
+      if (state.sharedMode){ alert('Uploading new versions is disabled for shared viewers.'); return; }
+      const file = fileOrEvent && fileOrEvent.name ? fileOrEvent : null;
+      if (!file) return;
       const url = URL.createObjectURL(file);
-      img.onload = () => {
-        state.imgNatural.w = img.naturalWidth;
-        state.imgNatural.h = img.naturalHeight;
-        // Set the inner box to natural size so transform scale is accurate
-        imageInner.style.width = state.imgNatural.w + 'px';
-        imageInner.style.height = state.imgNatural.h + 'px';
-        stage.hidden = false;
-        dropzone.hidden = true;
-        fitToViewport();
+      await addVersionFromImageURL(url);
+    }
+
+    async function addVersionFromImageURL(url){
+      const imgLoad = new Image();
+      imgLoad.onload = () => {
+        const nextNum = Math.max(0, ...state.versionOrder.map(v=> parseInt(v.replace(/\\D/g,''))||0)) + 1;
+        const vKey = `v${nextNum}`;
+        state.versions[vKey] = { imageSrc: url, comments: [], nextId: 1 };
+        state.imgNatural.w = imgLoad.naturalWidth; state.imgNatural.h = imgLoad.naturalHeight;
+        imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px';
+        setVersions([vKey, ...state.versionOrder]);
+        state.currentVersion = vKey;
+        stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport(); autoSave();
       };
-      img.src = url;
+      imgLoad.src = url;
     }
 
-    function applyScale(){
-      imageInner.style.transform = `scale(${state.scale})`;
-      zoomResetBtn.textContent = Math.round(state.scale * 100) + '%';
-    }
-
-    function fitToViewport(){
-      // Fit image to viewport width by default
-      const vw = viewport.clientWidth - 20; // small padding room
-      const vh = viewport.clientHeight - 20;
-      const sx = vw / state.imgNatural.w;
-      const sy = vh / state.imgNatural.h;
-      state.scale = Math.max( Math.min(sx, sy), 0.5 );
-      applyScale();
-    }
-
-    window.addEventListener('resize', () => {
-      if (!stage.hidden) fitToViewport();
-    });
-
-    zoomInBtn.addEventListener('click', () => { state.scale = Math.min(state.maxScale, +(state.scale + state.step).toFixed(2)); applyScale(); });
-    zoomOutBtn.addEventListener('click', () => { state.scale = Math.max(state.minScale, +(state.scale - state.step).toFixed(2)); applyScale(); });
-    zoomResetBtn.addEventListener('click', () => { fitToViewport(); });
-
-    // Add marker by clicking the image
+    // Image click adds a new comment with inline form
     imageInner.addEventListener('click', (e) => {
-      // Avoid adding when clicking on a marker
-      if (e.target.classList.contains('marker')) return;
-
+      if (e.target.classList.contains('marker')) return; // clicking a marker does not create
       const rect = imageInner.getBoundingClientRect();
-      const xScaled = e.clientX - rect.left;
-      const yScaled = e.clientY - rect.top;
-      // Remove the scale to compute native coordinates
-      const x = xScaled / state.scale;
-      const y = yScaled / state.scale;
-      const xPct = (x / state.imgNatural.w) * 100;
-      const yPct = (y / state.imgNatural.h) * 100;
-
-      addComment({ xPct, yPct, text: 'New comment', resolved: false });
+      const xScaled = e.clientX - rect.left; const yScaled = e.clientY - rect.top;
+      const x = xScaled / state.scale; const y = yScaled / state.scale;
+      const xPct = (x / state.imgNatural.w) * 100; const yPct = (y / state.imgNatural.h) * 100;
+      openNewCommentForm(xPct, yPct);
     });
 
-    function addComment({ xPct, yPct, text, resolved }){
-      const id = state.nextId++;
-      state.comments.push({ id, xPct, yPct, text, resolved });
-      renderMarker({ id, xPct, yPct, resolved });
-      renderComments();
+    function openNewCommentForm(xPct, yPct){
+      const container = document.createElement('div'); container.className = 'new-comment';
+      container.innerHTML = `
+        <div><strong>New Comment</strong></div>
+        <div class="form-row"><input type="text" id="newAuthor" placeholder="Your name" value="${sanitize(authorInput.value || '')}" /></div>
+        <div class="form-row"><textarea id="newText" placeholder="Type feedback..."></textarea></div>
+        <div class="form-row">
+          <button class="btn small" data-action="save-new">Save</button>
+          <button class="btn small" data-action="cancel-new">Cancel</button>
+        </div>
+      `;
+      container.dataset.xpct = String(xPct); container.dataset.ypct = String(yPct);
+      commentsEl.prepend(container);
     }
 
-    function renderMarker({ id, xPct, yPct, resolved }){
-      const existing = imageInner.querySelector(`[data-id="${id}"]`);
-      if (existing) existing.remove();
+    commentsEl.addEventListener('click', (e)=>{
+      const t = e.target; if (!(t instanceof HTMLElement)) return;
+      const action = t.getAttribute('data-action');
+      if (action === 'save-new'){
+        const wrap = t.closest('.new-comment'); if (!wrap) return;
+        const xPct = +wrap.dataset.xpct; const yPct = +wrap.dataset.ypct;
+        const author = wrap.querySelector('#newAuthor').value.trim() || 'Anon';
+        const text = wrap.querySelector('#newText').value.trim();
+        if (!text){ alert('Please add a comment.'); return; }
+        addComment({ xPct, yPct, author, text, resolved:false });
+        wrap.remove();
+        return;
+      }
+      if (action === 'cancel-new'){
+        const wrap = t.closest('.new-comment'); if (wrap) wrap.remove();
+        return;
+      }
+
+      // Actions on existing comments
+      const id = +(t.getAttribute('data-id') || 0);
+      if (!id) return;
+      const v = state.versions[state.currentVersion];
+      const c = v.comments.find(x=> x.id === id); if (!c) return;
+
+      if (action === 'toggle-resolve'){
+        console.groupCollapsed('[RESOLVE] toggle', { id, to: !c.resolved ? 'resolved' : 'unresolved' });
+        c.resolved = !c.resolved; console.groupEnd();
+        renderMarker(c); renderComments(); autoSave();
+        return;
+      }
+      if (action === 'delete'){
+        if (!confirm('Delete this comment?')) return;
+        v.comments = v.comments.filter(x=> x.id !== id);
+        const m = imageInner.querySelector(`[data-id="${id}"]`); if (m) m.remove();
+        renderComments(); autoSave();
+        return;
+      }
+      if (action === 'edit'){
+        const editable = commentsEl.querySelector(`.text[data-id="${id}"]`); if (editable){ editable.focus(); }
+        return;
+      }
+      if (action === 'reply'){
+        const area = commentsEl.querySelector(`.reply-area[data-id="${id}"]`);
+        if (area){ area.innerHTML = replyFormHTML(id); }
+        return;
+      }
+      if (action === 'save-reply'){
+        const rid = Date.now();
+        const block = t.closest('.reply-area'); if (!block) return;
+        const author = (block.querySelector('.reply-author').value || authorInput.value || 'Anon').trim();
+        const text = (block.querySelector('.reply-text').value || '').trim();
+        if (!text) { alert('Please write a reply.'); return; }
+        c.replies.push({ rid, author, text, createdAt: new Date().toISOString() });
+        renderComments(); autoSave();
+        return;
+      }
+      if (action === 'cancel-reply'){
+        const block = t.closest('.reply-area'); if (block) block.innerHTML = '';
+        return;
+      }
+    });
+
+    function replyFormHTML(id){
+      return `
+        <div class="form-row"><input type="text" class="reply-author" placeholder="Your name" value="${sanitize(authorInput.value || '')}" /></div>
+        <div class="form-row"><textarea class="reply-text" placeholder="Write a reply..."></textarea></div>
+        <div class="form-row">
+          <button class="btn small" data-action="save-reply" data-id="${id}">Save reply</button>
+          <button class="btn small" data-action="cancel-reply" data-id="${id}">Cancel</button>
+        </div>
+      `;
+    }
+
+    // Keep editable text synced
+    commentsEl.addEventListener('input', (e)=>{
+      const t = e.target; if (!(t instanceof HTMLElement)) return;
+      if (t.classList.contains('text')){
+        const id = +(t.getAttribute('data-id') || 0);
+        const v = state.versions[state.currentVersion]; const c = v.comments.find(x=> x.id === id);
+        if (c){ c.text = t.textContent || ''; autoSaveSoon(); }
+      }
+    });
+
+    filterSelect.addEventListener('change', ()=> renderComments());
+
+    // [SEC:RENDER]
+    function addComment({ xPct, yPct, author, text, resolved }){
+      const v = state.versions[state.currentVersion];
+      const id = v.nextId++;
+      const c = { id, xPct, yPct, resolved, author, text, createdAt: new Date().toISOString(), replies: [] };
+      v.comments.push(c);
+      renderMarker(c); renderComments(); autoSave();
+    }
+
+    function renderAll(){
+      // load image for current version
+      const v = state.versions[state.currentVersion]; if (!v) return;
+      img.onload = ()=>{ state.imgNatural.w = img.naturalWidth; state.imgNatural.h = img.naturalHeight; imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px'; fitToViewport(); };
+      img.src = v.imageSrc;
+      // Clear markers and re-render
+      imageInner.querySelectorAll('.marker').forEach(m=> m.remove());
+      v.comments.forEach(renderMarker);
+      stage.hidden = false; dropzone.hidden = true;
+      renderComments(); updateExpiryUI();
+    }
+
+    function renderMarker(c){
+      const existing = imageInner.querySelector(`[data-id="${c.id}"]`); if (existing) existing.remove();
       const el = document.createElement('div');
-      el.className = `marker ${resolved ? 'resolved' : 'unresolved'}`;
-      el.dataset.id = String(id);
-      el.style.left = xPct + '%';
-      el.style.top = yPct + '%';
-      el.textContent = id;
-      el.setAttribute('data-testid', `marker-${id}`);
+      el.className = `marker ${c.resolved ? 'resolved' : 'unresolved'}`;
+      el.dataset.id = String(c.id);
+      el.style.left = c.xPct + '%'; el.style.top = c.yPct + '%';
+      el.textContent = c.id; el.setAttribute('data-testid', `marker-${c.id}`);
+      // Hover preview
+      let tip; el.addEventListener('mouseenter', ()=>{ tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = truncate(c.text, 80); el.appendChild(tip); });
+      el.addEventListener('mouseleave', ()=>{ if (tip) tip.remove(); });
+      // Click highlight
+      el.addEventListener('click', ()=>{ imageInner.querySelectorAll('.marker').forEach(m=> m.classList.remove('active')); el.classList.add('active'); scrollCardIntoView(c.id); });
       imageInner.appendChild(el);
     }
 
     function renderComments(){
+      const v = state.versions[state.currentVersion];
+      const filter = filterSelect.value;
       commentsEl.innerHTML = '';
-      state.comments.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'comment';
-        card.innerHTML = `
-          <div class="row">
-            <span class="badge ${c.resolved ? 'resolved' : ''}">#${c.id}</span>
-            <span class="meta">${c.resolved ? 'Resolved' : 'Unresolved'}</span>
-          </div>
-          <div class="text" contenteditable="true" data-id="${c.id}">${c.text}</div>
-          <div class="comment-actions">
-            <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}" data-testid="btn-resolve-${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
-            <button class="btn reply" data-action="reply" data-id="${c.id}">Reply</button>
-            <button class="btn edit" data-action="edit" data-id="${c.id}">Edit</button>
-            <button class="btn delete" data-action="delete" data-id="${c.id}">Delete</button>
-          </div>
-        `;
-        commentsEl.appendChild(card);
-      });
+      v.comments
+        .filter(c => filter==='all' ? true : filter==='resolved' ? c.resolved : !c.resolved)
+        .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt))
+        .forEach(c => {
+          const card = document.createElement('div'); card.className = `comment ${c.resolved ? 'resolved':''}`;
+          card.innerHTML = `
+            <div class="row">
+              <span class="badge ${c.resolved ? 'resolved' : ''}">#${c.id}</span>
+              <span><strong>${sanitize(c.author || 'Anon')}</strong></span>
+              <span class="meta">${formatTime(c.createdAt)}</span>
+              <span class="meta">${c.resolved ? 'Resolved' : 'Unresolved'}</span>
+            </div>
+            <div class="text" contenteditable="true" data-id="${c.id}">${sanitize(c.text)}</div>
+            <div class="comment-actions">
+              <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}" data-testid="btn-resolve-${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
+              <button class="btn reply" data-action="reply" data-id="${c.id}">Reply</button>
+              <button class="btn edit" data-action="edit" data-id="${c.id}">Edit</button>
+              <button class="btn delete" data-action="delete" data-id="${c.id}">Delete</button>
+            </div>
+            <div class="reply-area" data-id="${c.id}"></div>
+            ${c.replies.map(r => `
+              <div class="reply">
+                <div class="meta"><strong>${sanitize(r.author || 'Anon')}</strong> • ${formatTime(r.createdAt)}</div>
+                <div>${sanitize(r.text)}</div>
+              </div>
+            `).join('')}
+          `;
+          commentsEl.appendChild(card);
+        });
     }
 
-    // Action handling with delegation
-    commentsEl.addEventListener('click', (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLElement)) return;
-      const id = +(t.getAttribute('data-id') || 0);
-      if (!id) return;
-      const c = state.comments.find(x => x.id === id);
-      if (!c) return;
+    function scrollCardIntoView(id){
+      const card = Array.from(commentsEl.children).find(el => el.querySelector && el.querySelector(`.badge`) && el.querySelector('.badge').textContent === `#${id}`);
+      if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+    }
 
-      const action = t.getAttribute('data-action');
-      if (action === 'toggle-resolve'){
-        console.groupCollapsed('[RESOLVE] toggle', { id, to: !c.resolved ? 'resolved' : 'unresolved' });
-        c.resolved = !c.resolved;
-        console.groupEnd();
-        // Update marker
-        renderMarker(c);
-        // Re-render comments to refresh buttons, badge colors, and text
-        renderComments();
-        return;
-      }
-      if (action === 'delete'){
-        // Remove comment and marker
-        state.comments = state.comments.filter(x => x.id !== id);
-        const m = imageInner.querySelector(`[data-id="${id}"]`);
-        if (m) m.remove();
-        renderComments();
-        return;
-      }
-      if (action === 'edit'){
-        // Focus editable text
-        const editable = commentsEl.querySelector(`.text[data-id="${id}"]`);
-        if (editable){ editable.focus(); }
-        return;
-      }
-      if (action === 'reply'){
-        alert('Reply clicked for #' + id);
-        return;
-      }
-    });
+    // [SEC:SHARECODE]
+    function updateExpiryUI(){
+      if (!state.expiresAt){ expiresText.textContent = '—'; return; }
+      const now = Date.now(); const exp = new Date(state.expiresAt).getTime();
+      const days = Math.max(0, Math.ceil((exp - now) / (1000*60*60*24)));
+      expiresText.textContent = `${new Date(state.expiresAt).toLocaleDateString()} (${days} days)`;
+      accessText.textContent = String(state.accessCount || 0);
+    }
 
-    // Keep editable text synced
-    commentsEl.addEventListener('input', (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLElement)) return;
-      if (t.classList.contains('text')){
-        const id = +(t.getAttribute('data-id') || 0);
-        const c = state.comments.find(x => x.id === id);
-        if (c) c.text = t.textContent || '';
-      }
-    });
+    async function onShare(){
+      // Create project id if needed
+      if (!state.projectId){ state.projectId = cryptoRandomId(64); state.createdAt = new Date().toISOString(); state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString(); state.accessCount = 0; }
+      await saveProject();
+      const sharedUrl = `${WORKER_BASE}/${state.projectId}.json`;
+      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedUrl)}`;
+      navigator.clipboard.writeText(appUrl).catch(()=>{});
+      alert('Share link copied to clipboard');
+    }
 
-    // Demo seed
-    document.getElementById('addDummy').addEventListener('click', () => {
-      if (!img.src){
-        // Load a tiny placeholder canvas if no image yet
-        const ph = document.createElement('canvas');
-        ph.width = 1200; ph.height = 800;
-        const cx = ph.getContext('2d');
-        cx.fillStyle = '#0c0f22'; cx.fillRect(0,0,ph.width,ph.height);
-        cx.strokeStyle = '#1f2a5a'; cx.lineWidth = 6; cx.strokeRect(20,20,ph.width-40,ph.height-40);
-        cx.fillStyle = '#ffffff'; cx.font = '28px system-ui'; cx.fillText('Drop an image to annotate', 36, 64);
-        img.onload = () => {
-          state.imgNatural.w = img.naturalWidth;
-          state.imgNatural.h = img.naturalHeight;
-          imageInner.style.width = state.imgNatural.w + 'px';
-          imageInner.style.height = state.imgNatural.h + 'px';
-          stage.hidden = false; dropzone.hidden = true; fitToViewport();
-        }
-        img.src = ph.toDataURL();
-      }
-      // Add two sample comments
-      addComment({ xPct: 30, yPct: 30, text: 'Tighten crop on subject', resolved: false });
-      addComment({ xPct: 72, yPct: 58, text: 'Color balance a bit cool', resolved: true });
-    });
+    async function copyShareLink(){
+      const sharedParam = new URLSearchParams(location.search).get('shared');
+      if (sharedParam){ navigator.clipboard.writeText(location.href).catch(()=>{}); alert('Share link copied'); return; }
+      await onShare();
+    }
 
-    // Make sure markers stay aligned when user scrolls the viewport
-    // (they do, since they live inside the scaled element). Nothing else needed here.
+    document.getElementById('shareBtn').addEventListener('click', onShare);
+    document.getElementById('copyShare').addEventListener('click', copyShareLink);
+
+    async function saveProject(){
+      try{
+        const payload = {
+          projectId: state.projectId,
+          createdAt: state.createdAt,
+          expiresAt: state.expiresAt,
+          accessCount: state.accessCount,
+          versionOrder: state.versionOrder,
+          currentVersion: state.currentVersion,
+          versions: state.versions,
+        };
+        await fetch(`${WORKER_BASE}/${state.projectId}.json`, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      }catch(err){ console.warn('Save failed', err); }
+    }
+
+    let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
+    function autoSave(){ if (state.projectId) saveProject(); }
+
+    async function loadProjectFromShared(sharedUrl){
+      try{
+        const res = await fetch(sharedUrl, { cache:'no-store' }); if (!res.ok) throw new Error('load failed');
+        const data = await res.json();
+        state.projectId = data.projectId; state.createdAt = data.createdAt; state.expiresAt = data.expiresAt; state.accessCount = (data.accessCount||0) + 1;
+        state.versionOrder = data.versionOrder; state.versions = data.versions; state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
+        setVersions(state.versionOrder); renderAll(); updateExpiryUI();
+        // best effort store updated access count
+        await saveProject();
+      }catch(err){ console.error('Load failed', err); alert('Could not load shared project.'); }
+    }
+
+    // [SEC:UTIL]
+    function formatTime(iso){ try{ const d = new Date(iso); return d.toLocaleString(); } catch{ return '' } }
+    function truncate(str, n){ return (str||'').length > n ? (str||'').slice(0,n-1)+'…' : (str||''); }
+    function sanitize(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+    function cryptoRandomId(len){ const arr = new Uint8Array(len); (crypto||window.crypto).getRandomValues(arr); const abc = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let out=''; for(const n of arr){ out += abc[n % abc.length]; } return out; }
+
+    // Init
+    (function init(){
+      // Shared mode check
+      const shared = new URLSearchParams(location.search).get('shared');
+      if (shared){ state.sharedMode = true; uploadBtn.disabled = true; uploadBtn.title = 'Uploads disabled for shared viewers'; loadProjectFromShared(shared); return; }
+      // Fresh project landing
+      setVersions([]); updateExpiryUI();
+    })();
   </script>
 </body>
 </html>
