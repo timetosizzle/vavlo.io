@@ -184,7 +184,7 @@ QUICK NAV
     /** @typedef {{ id:number, xPct:number, yPct:number, resolved:boolean, author:string, text:string, createdAt:string, replies:ReplyItem[] }} CommentItem */
     /** @typedef {{ imageSrc:string, comments:CommentItem[], nextId:number }} VersionPayload */
 
-    /** @type {{ projectId:string|null, createdAt:string|null, expiresAt:string|null, accessCount:number, versionOrder:string[], versions:Record<string, VersionPayload>, currentVersion:string|null, sharedMode:boolean, scale:number, minScale:number, maxScale:number, step:number, imgNatural:{w:number,h:number} }} */
+    /** @type {{ projectId:string|null, createdAt:string|null, expiresAt:string|null, accessCount:number, versionOrder:string[], versions:Record<string, VersionPayload>, currentVersion:string|null, sharedMode:boolean, scale:number, minScale:number, maxScale:number, step:number, imgNatural:{w:number,h:number}, sharedJsonUrl:string|null }} */
     const state = {
       projectId: null,
       createdAt: null,
@@ -199,10 +199,11 @@ QUICK NAV
       maxScale: 4,
       step: 0.25,
       imgNatural: { w: 0, h: 0 },
+      sharedJsonUrl: null,
     };
 
-    // Config for Cloudflare Worker style API
-    const WORKER_BASE = 'https://worker-url.com'; // replace with your Worker origin
+    // Point this at YOUR deployed worker (same host as your wrangler routes)
+    const WORKER_BASE = 'https://vavlo-worker.YOUR_DOMAIN_OR_SUBDOMAIN'; // e.g. https://api.vavlo.io
 
     // Elements
     const dropzone = document.getElementById('dropzone');
@@ -258,30 +259,38 @@ QUICK NAV
     dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--line)'; const file = e.dataTransfer.files && e.dataTransfer.files[0]; if (file) addNewVersionFromFile(file); });
     fileInput.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; if (file) addNewVersionFromFile(file); });
 
-    async function ensureProjectIdAndLink(){
-      if (!state.projectId){
-        state.projectId = cryptoRandomId(64);
-        state.createdAt = new Date().toISOString();
-        state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString();
-        state.accessCount = 0;
-      }
-      const sharedUrl = `${WORKER_BASE}/${state.projectId}.json`;
-      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedUrl)}`;
-      if (shareInput){ shareInput.value = appUrl; }
-      await saveProject();
-    }
-
-    async function addNewVersionFromFile(fileOrEvent){
+    async function addNewVersionFromFile(file){
       if (state.sharedMode){ alert('Uploading new versions is disabled for shared viewers.'); return; }
-      const file = fileOrEvent && fileOrEvent.name ? fileOrEvent : null;
       if (!file) return;
-      const url = URL.createObjectURL(file);
-      await ensureProjectIdAndLink();
-      await addVersionFromImageURL(url);
+
+      await ensureProjectIdAndLink(); // guarantees share link + shell save
+
+      // Upload image to Worker -> Dropbox
+      const vNum = Math.max(0, ...state.versionOrder.map(v=> parseInt(v.replace(/\D/g,''))||0)) + 1;
+      const key = `versions/${state.projectId}/v${vNum}_${Date.now()}.png`;
+      const form = new FormData();
+      form.append('file', file);
+      form.append('key', key);
+
+      let imageUrl = '';
+      try{
+        const res = await fetch(`${WORKER_BASE}/upload`, { method:'POST', body: form });
+        const data = await res.json();
+        if (!res.ok || !data?.imageUrl) throw new Error('Upload failed');
+        imageUrl = data.imageUrl;
+      }catch(err){
+        console.error('Upload error', err);
+        alert('Image upload failed');
+        return;
+      }
+
+      await addVersionFromImageURL(imageUrl);
+      await saveProject(); // persist after version add
     }
 
     async function addVersionFromImageURL(url){
       const imgLoad = new Image();
+      imgLoad.crossOrigin = 'anonymous';
       imgLoad.onload = () => {
         const nextNum = Math.max(0, ...state.versionOrder.map(v=> parseInt(v.replace(/\D/g,''))||0)) + 1;
         const vKey = `v${nextNum}`;
@@ -290,11 +299,12 @@ QUICK NAV
         imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px';
         setVersions([vKey, ...state.versionOrder]);
         state.currentVersion = vKey;
-        stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport(); autoSave();
+        stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport();
       };
       imgLoad.src = url;
     }
 
+    // Image click adds a new comment with inline form
     imageInner.addEventListener('click', (e) => {
       if (e.target.classList.contains('marker')) return;
       const rect = imageInner.getBoundingClientRect();
@@ -457,7 +467,7 @@ QUICK NAV
             </div>
             <div class="text" contenteditable="true" data-id="${c.id}">${sanitize(c.text)}</div>
             <div class="comment-actions">
-              <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
+              <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}" data-testid="btn-resolve-${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
               <button class="btn reply" data-action="reply" data-id="${c.id}">Reply</button>
               <button class="btn edit" data-action="edit" data-id="${c.id}">Edit</button>
               <button class="btn delete" data-action="delete" data-id="${c.id}">Delete</button>
@@ -481,6 +491,79 @@ QUICK NAV
     }
 
     // [SEC:SHARECODE]
+    function buildAppShareUrl(sharedJsonUrl){
+      return `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedJsonUrl)}`;
+    }
+
+    async function ensureProjectIdAndLink(){
+      if (!state.projectId){
+        state.projectId = cryptoRandomId(64);
+        state.createdAt = new Date().toISOString();
+        state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString();
+        state.accessCount = 0;
+      }
+      const payload = snapshotProject();
+      const res = await fetch(`${WORKER_BASE}/save-project`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ project: payload, comments: collectAllComments() })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.sharedJsonUrl) throw new Error('save-project failed');
+      state.sharedJsonUrl = data.sharedJsonUrl;
+      if (shareInput) shareInput.value = buildAppShareUrl(state.sharedJsonUrl);
+    }
+
+    async function saveProject(){
+      if (!state.projectId) return;
+      try{
+        const payload = snapshotProject();
+        const res = await fetch(`${WORKER_BASE}/save-project`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ project: payload, comments: collectAllComments() })
+        });
+        if (!res.ok){
+          const t = await res.text();
+          console.warn('save-project failed', t.slice(0,300));
+        }else{
+          const data = await res.json().catch(()=> ({}));
+          if (data?.sharedJsonUrl){
+            state.sharedJsonUrl = data.sharedJsonUrl;
+            if (shareInput) shareInput.value = buildAppShareUrl(state.sharedJsonUrl);
+          }
+        }
+      }catch(err){ console.warn('Save failed', err); }
+    }
+
+    let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
+    function autoSave(){ if (state.projectId) saveProject(); }
+
+    async function loadProjectFromShared(sharedUrl){
+      try{
+        const res = await fetch(sharedUrl, { cache:'no-store' });
+        if (!res.ok) throw new Error('load failed');
+        const data = await res.json();
+        // Expecting { project, comments } per your Worker
+        const p = data.project || {};
+        state.projectId     = p.projectId || p.id || state.projectId || null;
+        state.createdAt     = p.createdAt || null;
+        state.expiresAt     = p.expiresAt || null;
+        state.accessCount   = p.accessCount || 0;
+        state.versionOrder  = p.versionOrder || [];
+        state.versions      = p.versions || {};
+        state.currentVersion= p.currentVersion || (state.versionOrder && state.versionOrder[0]) || null;
+        state.sharedJsonUrl = sharedUrl;
+
+        setVersions(state.versionOrder);
+        renderAll(); updateExpiryUI();
+        if (shareInput){ shareInput.value = buildAppShareUrl(sharedUrl); }
+      }catch(err){
+        console.error('Load failed', err);
+        alert('Could not load shared project.');
+      }
+    }
+
     function updateExpiryUI(){
       if (!state.expiresAt){ expiresText.textContent = '-'; return; }
       const now = Date.now(); const exp = new Date(state.expiresAt).getTime();
@@ -496,38 +579,29 @@ QUICK NAV
     }
     document.getElementById('copyShare').addEventListener('click', copyShareLink);
 
-    async function saveProject(){
-      try{
-        const payload = {
-          projectId: state.projectId,
-          createdAt: state.createdAt,
-          expiresAt: state.expiresAt,
-          accessCount: state.accessCount,
-          versionOrder: state.versionOrder,
-          currentVersion: state.currentVersion,
-          versions: state.versions,
-        };
-        if (!state.projectId) return;
-        await fetch(`${WORKER_BASE}/${state.projectId}.json`, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
-      }catch(err){ console.warn('Save failed', err); }
-    }
-
-    let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
-    function autoSave(){ if (state.projectId) saveProject(); }
-
-    async function loadProjectFromShared(sharedUrl){
-      try{
-        const res = await fetch(sharedUrl, { cache:'no-store' }); if (!res.ok) throw new Error('load failed');
-        const data = await res.json();
-        state.projectId = data.projectId; state.createdAt = data.createdAt; state.expiresAt = data.expiresAt; state.accessCount = (data.accessCount||0) + 1;
-        state.versionOrder = data.versionOrder; state.versions = data.versions; state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
-        setVersions(state.versionOrder); renderAll(); updateExpiryUI();
-        if (shareInput){ shareInput.value = location.href; }
-        await saveProject();
-      }catch(err){ console.error('Load failed', err); alert('Could not load shared project.'); }
-    }
-
     // [SEC:UTIL]
+    function snapshotProject(){
+      return {
+        // use id key for your Worker JSON as well
+        id: state.projectId,
+        projectId: state.projectId,
+        createdAt: state.createdAt,
+        expiresAt: state.expiresAt,
+        accessCount: state.accessCount,
+        versionOrder: state.versionOrder,
+        currentVersion: state.currentVersion,
+        versions: state.versions
+      };
+    }
+    function collectAllComments(){
+      // Optional: send a flattened list for analytics; not required by Worker
+      const out = [];
+      for (const vKey of state.versionOrder){
+        const v = state.versions[vKey]; if (!v) continue;
+        for (const c of (v.comments||[])){ out.push({ ...c, version: vKey }); }
+      }
+      return out;
+    }
     function formatTime(iso){ try{ const d = new Date(iso); return d.toLocaleString(); } catch{ return '' } }
     function truncate(str, n){ return (str||'').length > n ? (str||'').slice(0,n-1)+'…' : (str||''); }
     function sanitize(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
@@ -536,8 +610,12 @@ QUICK NAV
     // Init
     (async function init(){
       const shared = new URLSearchParams(location.search).get('shared');
-      if (shared){ state.sharedMode = true; uploadBtn.disabled = true; uploadBtn.title = 'Uploads disabled for shared viewers'; loadProjectFromShared(shared); return; }
-      await ensureProjectIdAndLink();
+      if (shared){
+        state.sharedMode = true; uploadBtn.disabled = true; uploadBtn.title = 'Uploads disabled for shared viewers';
+        await loadProjectFromShared(shared);
+        return;
+      }
+      await ensureProjectIdAndLink(); // creates link via /save-project on first load
       setVersions([]); updateExpiryUI();
     })();
   </script>
