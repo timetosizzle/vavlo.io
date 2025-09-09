@@ -1,3 +1,19 @@
+<!--
+QUICK NAV
+[ABOUT] Tool purpose .......... search: [SEC:ABOUT]
+[LAYOUT] Topbar ............... search: [SEC:TOPBAR]
+[LAYOUT] Share Strip .......... search: [SEC:SHARE]
+[LAYOUT] Stage/Viewport ....... search: [SEC:STAGE]
+[LAYOUT] Sidebar/Comments ..... search: [SEC:SIDEBAR]
+[STATE]  App State ............ search: [SEC:STATE]
+[UI]     Version Dropdown ..... search: [SEC:VERSIONS]
+[UI]     Zoom Controls ........ search: [SEC:ZOOM]
+[UI]     Filters & Forms ...... search: [SEC:FILTERS]
+[ACTIONS] Comment Actions ..... search: [SEC:ACTIONS]
+[RENDER] Markers & Comments ... search: [SEC:RENDER]
+[SHARE]  Save-Load-Links ...... search: [SEC:SHARECODE]
+[UTIL]   Helpers .............. search: [SEC:UTIL]
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,10 +30,9 @@
     a{color:inherit}
     .sr{position:absolute;left:-9999px}
 
-    /* ===== LAYOUT: TOPBAR ===== */
-    /* [SEC:TOPBAR] */
-    .topbar{display:flex;align-items:center;gap:16px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
-    .brand{display:flex;align-items:center;gap:10px}
+    /* ===== [SEC:TOPBAR] LAYOUT: TOPBAR ===== */
+    .topbar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+    .brand{display:flex;align-items:center}
     .brand img{height:22px}
     .spacer{flex:1}
     select,.btn,input[type="text"],textarea{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);border-radius:8px;padding:8px 10px}
@@ -25,8 +40,7 @@
     .btn{cursor:pointer}
     .icon-btn{width:34px;height:34px;display:inline-grid;place-items:center;border-radius:8px}
 
-    /* ===== SHARE STRIP ===== */
-    /* [SEC:SHARE] */
+    /* ===== [SEC:SHARE] SHARE STRIP ===== */
     .share-strip{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
     .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
     .btn.primary{background:var(--pink);border-color:transparent}
@@ -36,14 +50,12 @@
     .canvas-area{position:relative;overflow:auto;background:radial-gradient(1200px 1200px at 50% -10%, #1a1f3e, #0f1221 60%)}
     .sidebar{border-left:1px solid var(--line);background:var(--panel);overflow:auto}
 
-    /* ===== DROP ZONE ===== */
+    /* ===== [SEC:STAGE] DROP ZONE & STAGE ===== */
     .dropzone{border:2px dashed var(--line);border-radius:16px;padding:24px;margin:16px;text-align:center;background:rgba(255,255,255,0.02)}
     .dropzone .logo{display:block;margin:0 auto 12px auto;height:42px}
     .dropzone h3{margin:6px 0 4px 0}
     .muted{color:var(--muted)}
 
-    /* ===== STAGE & IMAGE ===== */
-    /* [SEC:STAGE] */
     .stage{position:relative;margin:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0c0f22}
     .image-viewport{position:relative;width:100%;height:72vh;overflow:auto;background:#0c0f22}
     .image-inner{position:relative;transform-origin:top left}
@@ -56,8 +68,7 @@
     .marker.active{outline:3px solid rgba(255,255,255,.35)}
     .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%, -120%);white-space:nowrap}
 
-    /* ===== SIDEBAR ===== */
-    /* [SEC:SIDEBAR] */
+    /* ===== [SEC:SIDEBAR] SIDEBAR ===== */
     .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
     .filters{display:flex;gap:8px;align-items:center}
     .comments{padding:8px 10px}
@@ -80,7 +91,7 @@
     .btn.delete{background:var(--danger)}
 
     /* Wider zoom display */
-    #zoomReset{ min-width:88px; }
+    #zoomReset{ min-width: 120px; }
   </style>
 </head>
 <body>
@@ -92,23 +103,22 @@
       <label for="version" class="sr">Version</label>
       <select id="version" title="Version" data-testid="version-select"></select>
     </div>
+    <button class="btn" id="uploadNewVersion" data-testid="btn-upload-version">Upload New Version</button>
     <!-- [SEC:ZOOM] -->
     <div class="zoom-group" style="margin-left:6px">
-      <button class="btn icon-btn" id="zoomOut" data-testid="btn-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+      <button class="btn icon-btn" id="zoomOut" data-testid="btn-zoom-out" title="Zoom out" aria-label="Zoom out">-</button>
       <button class="btn icon-btn" id="zoomReset" data-testid="btn-zoom-reset" title="Reset zoom" aria-label="Reset zoom">100%</button>
       <button class="btn icon-btn" id="zoomIn" data-testid="btn-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
     </div>
     <div class="spacer"></div>
-    <!-- Removed Share button by request -->
   </div>
 
   <!-- [SEC:SHARE] -->
   <div class="share-strip">
-    <span class="pill">Expires: <strong id="expiresText">—</strong></span>
+    <span class="pill">Expires: <strong id="expiresText">-</strong></span>
     <span class="pill">Accesses: <strong id="accessText">0</strong></span>
     <input id="shareLink" type="text" readonly placeholder="Share link will appear here" style="flex:1; min-width:300px" />
     <button class="btn" id="copyShare">Copy</button>
-    <button class="btn primary" id="uploadNewVersion" data-testid="btn-upload-version">Upload New Version</button>
   </div>
 
   <div class="wrap">
@@ -192,7 +202,7 @@
     };
 
     // Config for Cloudflare Worker style API
-    const WORKER_BASE = 'https://worker-url.com'; // change for production
+    const WORKER_BASE = 'https://worker-url.com'; // replace with your Worker origin
 
     // Elements
     const dropzone = document.getElementById('dropzone');
@@ -248,11 +258,25 @@
     dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--line)'; const file = e.dataTransfer.files && e.dataTransfer.files[0]; if (file) addNewVersionFromFile(file); });
     fileInput.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; if (file) addNewVersionFromFile(file); });
 
+    async function ensureProjectIdAndLink(){
+      if (!state.projectId){
+        state.projectId = cryptoRandomId(64);
+        state.createdAt = new Date().toISOString();
+        state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString();
+        state.accessCount = 0;
+      }
+      const sharedUrl = `${WORKER_BASE}/${state.projectId}.json`;
+      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedUrl)}`;
+      if (shareInput){ shareInput.value = appUrl; }
+      await saveProject();
+    }
+
     async function addNewVersionFromFile(fileOrEvent){
       if (state.sharedMode){ alert('Uploading new versions is disabled for shared viewers.'); return; }
       const file = fileOrEvent && fileOrEvent.name ? fileOrEvent : null;
       if (!file) return;
       const url = URL.createObjectURL(file);
+      await ensureProjectIdAndLink();
       await addVersionFromImageURL(url);
     }
 
@@ -271,9 +295,8 @@
       imgLoad.src = url;
     }
 
-    // Image click adds a new comment with inline form
     imageInner.addEventListener('click', (e) => {
-      if (e.target.classList.contains('marker')) return; // clicking a marker does not create
+      if (e.target.classList.contains('marker')) return;
       const rect = imageInner.getBoundingClientRect();
       const xScaled = e.clientX - rect.left; const yScaled = e.clientY - rect.top;
       const x = xScaled / state.scale; const y = yScaled / state.scale;
@@ -314,7 +337,6 @@
         return;
       }
 
-      // Actions on existing comments
       const id = +(t.getAttribute('data-id') || 0);
       if (!id) return;
       const v = state.versions[state.currentVersion];
@@ -356,7 +378,6 @@
         return;
       }
       if (action === 'submit'){
-        // Explicitly save current text for this comment
         const editable = commentsEl.querySelector(`.text[data-id="${id}"]`);
         if (editable){ c.text = editable.textContent || ''; }
         autoSave();
@@ -375,7 +396,6 @@
       `;
     }
 
-    // Keep editable text synced (autosave still works, plus you now have per-comment Submit)
     commentsEl.addEventListener('input', (e)=>{
       const t = e.target; if (!(t instanceof HTMLElement)) return;
       if (t.classList.contains('text')){
@@ -397,11 +417,9 @@
     }
 
     function renderAll(){
-      // load image for current version
       const v = state.versions[state.currentVersion]; if (!v) return;
       img.onload = ()=>{ state.imgNatural.w = img.naturalWidth; state.imgNatural.h = img.naturalHeight; imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px'; fitToViewport(); };
       img.src = v.imageSrc;
-      // Clear markers and re-render
       imageInner.querySelectorAll('.marker').forEach(m=> m.remove());
       v.comments.forEach(renderMarker);
       stage.hidden = false; dropzone.hidden = true;
@@ -414,11 +432,9 @@
       el.className = `marker ${c.resolved ? 'resolved' : 'unresolved'}`;
       el.dataset.id = String(c.id);
       el.style.left = c.xPct + '%'; el.style.top = c.yPct + '%';
-      el.textContent = c.id; el.setAttribute('data-testid', `marker-${c.id}`);
-      // Hover preview
+      el.textContent = c.id;
       let tip; el.addEventListener('mouseenter', ()=>{ tip = document.createElement('div'); tip.className='tooltip'; tip.textContent = truncate(c.text, 80); el.appendChild(tip); });
       el.addEventListener('mouseleave', ()=>{ if (tip) tip.remove(); });
-      // Click highlight
       el.addEventListener('click', ()=>{ imageInner.querySelectorAll('.marker').forEach(m=> m.classList.remove('active')); el.classList.add('active'); scrollCardIntoView(c.id); });
       imageInner.appendChild(el);
     }
@@ -441,7 +457,7 @@
             </div>
             <div class="text" contenteditable="true" data-id="${c.id}">${sanitize(c.text)}</div>
             <div class="comment-actions">
-              <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}" data-testid="btn-resolve-${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
+              <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
               <button class="btn reply" data-action="reply" data-id="${c.id}">Reply</button>
               <button class="btn edit" data-action="edit" data-id="${c.id}">Edit</button>
               <button class="btn delete" data-action="delete" data-id="${c.id}">Delete</button>
@@ -460,35 +476,24 @@
     }
 
     function scrollCardIntoView(id){
-      const card = Array.from(commentsEl.children).find(el => el.querySelector && el.querySelector(`.badge`) && el.querySelector('.badge').textContent === `#${id}`);
+      const card = Array.from(commentsEl.children).find(el => el.querySelector && el.querySelector('.badge') && el.querySelector('.badge').textContent === `#${id}`);
       if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
     }
 
     // [SEC:SHARECODE]
     function updateExpiryUI(){
-      if (!state.expiresAt){ expiresText.textContent = '—'; return; }
+      if (!state.expiresAt){ expiresText.textContent = '-'; return; }
       const now = Date.now(); const exp = new Date(state.expiresAt).getTime();
       const days = Math.max(0, Math.ceil((exp - now) / (1000*60*60*24)));
       expiresText.textContent = `${new Date(state.expiresAt).toLocaleDateString()} (${days} days)`;
       accessText.textContent = String(state.accessCount || 0);
     }
 
-    async function onShare(){
-      // Create project id if needed
-      if (!state.projectId){ state.projectId = cryptoRandomId(64); state.createdAt = new Date().toISOString(); state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString(); state.accessCount = 0; }
-      await saveProject();
-      const sharedUrl = `${WORKER_BASE}/${state.projectId}.json`;
-      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedUrl)}`;
-      if (shareInput){ shareInput.value = appUrl; }
-      try{ await navigator.clipboard.writeText(appUrl); }catch(e){}
-    }
-
     async function copyShareLink(){
       let link = shareInput && shareInput.value ? shareInput.value : '';
-      if (!link){ await onShare(); link = shareInput.value; }
+      if (!link){ await ensureProjectIdAndLink(); link = shareInput.value; }
       try{ await navigator.clipboard.writeText(link); alert('Share link copied'); }catch(e){ alert('Copy failed'); }
     }
-
     document.getElementById('copyShare').addEventListener('click', copyShareLink);
 
     async function saveProject(){
@@ -502,6 +507,7 @@
           currentVersion: state.currentVersion,
           versions: state.versions,
         };
+        if (!state.projectId) return;
         await fetch(`${WORKER_BASE}/${state.projectId}.json`, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
       }catch(err){ console.warn('Save failed', err); }
     }
@@ -528,10 +534,10 @@
     function cryptoRandomId(len){ const arr = new Uint8Array(len); (crypto||window.crypto).getRandomValues(arr); const abc = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let out=''; for(const n of arr){ out += abc[n % abc.length]; } return out; }
 
     // Init
-    (function init(){
+    (async function init(){
       const shared = new URLSearchParams(location.search).get('shared');
       if (shared){ state.sharedMode = true; uploadBtn.disabled = true; uploadBtn.title = 'Uploads disabled for shared viewers'; loadProjectFromShared(shared); return; }
-      // Fresh project landing
+      await ensureProjectIdAndLink();
       setVersions([]); updateExpiryUI();
     })();
   </script>
