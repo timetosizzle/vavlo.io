@@ -59,10 +59,10 @@ QUICK NAV
     .stage{position:relative;margin:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0c0f22}
     .image-viewport{position:relative;width:100%;height:72vh;overflow:auto;background:#0c0f22}
     .image-inner{position:relative;transform-origin:top left}
-    .image-inner img{display:block;max-width:none}
+    .image-inner img{position:relative;z-index:1;display:block;max-width:none}
 
     /* ===== MARKERS ===== */
-    .marker{position:absolute;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%)}
+    .marker{position:absolute;z-index:2;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%)}
     .marker.unresolved{background:var(--pink)}
     .marker.resolved{background:var(--gray)}
     .marker.active{outline:3px solid rgba(255,255,255,.35)}
@@ -71,8 +71,8 @@ QUICK NAV
     /* ===== [SEC:SIDEBAR] SIDEBAR ===== */
     .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
     .filters{display:flex;gap:8px;align-items:center}
-    .comments{padding:8px 10px}
-    .comment{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--panel-2)}
+    .comments{padding:12px 12px}
+    .comment{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px;background:var(--panel-2)}
     .comment.resolved{background:#22263e}
     .comment .row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
     .badge{background:var(--pink);color:#fff;font-weight:800;padding:2px 8px;border-radius:999px}
@@ -89,6 +89,12 @@ QUICK NAV
     .btn.reply{background:var(--blue)}
     .btn.edit{background:var(--violet)}
     .btn.delete{background:var(--danger)}
+
+    /* Form rows used in new-comment and reply */
+    .form-row{margin:8px 0}
+
+    /* Share input width control */
+    #shareLink{width:520px;max-width:60vw}
 
     /* Wider zoom display */
     #zoomReset{ min-width: 120px; }
@@ -117,7 +123,7 @@ QUICK NAV
   <div class="share-strip">
     <span class="pill">Expires: <strong id="expiresText">-</strong></span>
     <span class="pill">Accesses: <strong id="accessText">0</strong></span>
-    <input id="shareLink" type="text" readonly placeholder="Share link will appear here" style="flex:1; min-width:300px" />
+    <input id="shareLink" type="text" readonly placeholder="Share link will appear here" />
     <button class="btn" id="copyShare">Copy</button>
   </div>
 
@@ -153,7 +159,6 @@ QUICK NAV
             <option value="unresolved" selected>Unresolved</option>
             <option value="resolved">Resolved</option>
           </select>
-          <input type="text" id="authorInput" placeholder="Your name" style="width:150px" />
         </div>
       </div>
       <div id="comments" class="comments"></div>
@@ -201,24 +206,29 @@ QUICK NAV
       imgNatural: { w: 0, h: 0 },
     };
 
+    // Remember author name locally
+    const AUTHOR_KEY = 'vavlo.author';
+    function getSavedAuthor(){ try{ return localStorage.getItem(AUTHOR_KEY) || ''; }catch{ return ''; } }
+    function setSavedAuthor(v){ try{ localStorage.setItem(AUTHOR_KEY, v || ''); }catch{} }
+
     // Config for Cloudflare Worker style API
     let workerBase = null;
-async function resolveWorkerBase(){
-  const qp = new URLSearchParams(location.search).get('worker');
-  const stored = localStorage.getItem('vavlo.workerBase') || null;
-  const meta = document.querySelector('meta[name="worker-base"]')?.getAttribute('content') || null;
-  const candidates = [qp, meta, stored, `${location.origin}/api`, `${location.origin}/worker`, 'https://api.vavlo.io', 'https://vavlo-worker.your_domain_or_subdomain'].filter(Boolean);
-  for (const base of candidates){
-    try{
-      const ctl = new AbortController();
-      const t = setTimeout(()=>ctl.abort(), 3000);
-      const res = await fetch(`${base}/health`, { signal: ctl.signal, cache:'no-store' });
-      clearTimeout(t);
-      if (res.ok){ workerBase = base; localStorage.setItem('vavlo.workerBase', base); return base; }
-    }catch(_){ }
-  }
-  workerBase = null; return null;
-} // replace with your Worker origin
+    async function resolveWorkerBase(){
+      const qp = new URLSearchParams(location.search).get('worker');
+      const stored = localStorage.getItem('vavlo.workerBase') || null;
+      const meta = document.querySelector('meta[name="worker-base"]')?.getAttribute('content') || null;
+      const candidates = [qp, meta, stored, `${location.origin}/api`, `${location.origin}/worker`, 'https://api.vavlo.io', 'https://vavlo-worker.your_domain_or_subdomain'].filter(Boolean);
+      for (const base of candidates){
+        try{
+          const ctl = new AbortController();
+          const t = setTimeout(()=>ctl.abort(), 3000);
+          const res = await fetch(`${base}/health`, { signal: ctl.signal, cache:'no-store' });
+          clearTimeout(t);
+          if (res.ok){ workerBase = base; localStorage.setItem('vavlo.workerBase', base); return base; }
+        }catch(_){ }
+      }
+      workerBase = null; return null;
+    }
 
     // Elements
     const dropzone = document.getElementById('dropzone');
@@ -230,7 +240,6 @@ async function resolveWorkerBase(){
     const viewport = document.getElementById('viewport');
     const commentsEl = document.getElementById('comments');
     const filterSelect = document.getElementById('filterSelect');
-    const authorInput = document.getElementById('authorInput');
     const zoomInBtn = document.getElementById('zoomIn');
     const zoomOutBtn = document.getElementById('zoomOut');
     const zoomResetBtn = document.getElementById('zoomReset');
@@ -281,8 +290,9 @@ async function resolveWorkerBase(){
         state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString();
         state.accessCount = 0;
       }
-      const sharedUrl = `${workerBase}/${state.projectId}.json`;
-      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedUrl)}`;
+      // Display a clean link without .json in the UI
+      const sharedDisplay = `${workerBase}/${state.projectId}`; // no .json
+      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedDisplay)}`;
       if (shareInput){ shareInput.value = appUrl; }
       await saveProject();
     }
@@ -321,11 +331,12 @@ async function resolveWorkerBase(){
     });
 
     function openNewCommentForm(xPct, yPct){
-      const container = document.createElement('div'); container.className = 'new-comment';
+      const namePrefill = getSavedAuthor();
+      const container = document.createElement('div'); container.className = 'new-comment comment';
       container.innerHTML = `
         <div><strong>New Comment</strong></div>
-        <div class="form-row"><input type="text" id="newAuthor" placeholder="Your name" value="${sanitize(authorInput.value || '')}" /></div>
-        <div class="form-row"><textarea id="newText" placeholder="Type feedback..."></textarea></div>
+        <div class="form-row"><input type="text" class="author-name" placeholder="Your name" value="${sanitize(namePrefill)}" /></div>
+        <div class="form-row"><textarea class="author-text" placeholder="Type feedback..."></textarea></div>
         <div class="form-row">
           <button class="btn small" data-action="save-new">Save</button>
           <button class="btn small" data-action="cancel-new">Cancel</button>
@@ -341,9 +352,10 @@ async function resolveWorkerBase(){
       if (action === 'save-new'){
         const wrap = t.closest('.new-comment'); if (!wrap) return;
         const xPct = +wrap.dataset.xpct; const yPct = +wrap.dataset.ypct;
-        const author = wrap.querySelector('#newAuthor').value.trim() || 'Anon';
-        const text = wrap.querySelector('#newText').value.trim();
+        const author = (wrap.querySelector('.author-name').value || 'Anon').trim();
+        const text = (wrap.querySelector('.author-text').value || '').trim();
         if (!text){ alert('Please add a comment.'); return; }
+        setSavedAuthor(author);
         addComment({ xPct, yPct, author, text, resolved:false });
         wrap.remove();
         return;
@@ -382,9 +394,10 @@ async function resolveWorkerBase(){
       if (action === 'save-reply'){
         const rid = Date.now();
         const block = t.closest('.reply-area'); if (!block) return;
-        const author = (block.querySelector('.reply-author').value || authorInput.value || 'Anon').trim();
+        const author = (block.querySelector('.reply-author').value || getSavedAuthor() || 'Anon').trim();
         const text = (block.querySelector('.reply-text').value || '').trim();
         if (!text) { alert('Please write a reply.'); return; }
+        setSavedAuthor(author);
         c.replies.push({ rid, author, text, createdAt: new Date().toISOString() });
         renderComments(); autoSave();
         return;
@@ -402,8 +415,9 @@ async function resolveWorkerBase(){
     });
 
     function replyFormHTML(id){
+      const namePrefill = getSavedAuthor();
       return `
-        <div class="form-row"><input type="text" class="reply-author" placeholder="Your name" value="${sanitize(authorInput.value || '')}" /></div>
+        <div class="form-row"><input type="text" class="reply-author" placeholder="Your name" value="${sanitize(namePrefill)}" /></div>
         <div class="form-row"><textarea class="reply-text" placeholder="Write a reply..."></textarea></div>
         <div class="form-row">
           <button class="btn small" data-action="save-reply" data-id="${id}">Save reply</button>
@@ -524,6 +538,7 @@ async function resolveWorkerBase(){
           versions: state.versions,
         };
         if (!state.projectId) return;
+        // Persist with .json suffix, even if the display link hides it
         await fetch(`${workerBase}/${state.projectId}.json`, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
       }catch(err){ console.warn('Save failed', err); }
     }
@@ -533,7 +548,10 @@ async function resolveWorkerBase(){
 
     async function loadProjectFromShared(sharedUrl){
       try{
-        const res = await fetch(sharedUrl, { cache:'no-store' }); if (!res.ok) throw new Error('load failed');
+        // Accept links with or without .json; append if missing
+        const urlObj = new URL(sharedUrl);
+        if (!urlObj.pathname.endsWith('.json')){ urlObj.pathname += '.json'; }
+        const res = await fetch(urlObj.toString(), { cache:'no-store' }); if (!res.ok) throw new Error('load failed');
         const data = await res.json();
         state.projectId = data.projectId; state.createdAt = data.createdAt; state.expiresAt = data.expiresAt; state.accessCount = (data.accessCount||0) + 1;
         state.versionOrder = data.versionOrder; state.versions = data.versions; state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
@@ -551,7 +569,7 @@ async function resolveWorkerBase(){
 
     // Init
     (async function init(){
-  await resolveWorkerBase();
+      await resolveWorkerBase();
       const shared = new URLSearchParams(location.search).get('shared');
       if (shared){ state.sharedMode = true; uploadBtn.disabled = true; uploadBtn.title = 'Uploads disabled for shared viewers'; loadProjectFromShared(shared); return; }
       await ensureProjectIdAndLink();
