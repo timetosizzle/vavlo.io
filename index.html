@@ -391,34 +391,54 @@
         return;
       }
       
+      const imageWrapper = document.getElementById('imageWrapper');
       const img = document.getElementById('mainImage');
-      const imgRect = img.getBoundingClientRect();
+      
+      // Get the wrapper's bounding rect (this accounts for zoom transforms)
+      const wrapperRect = imageWrapper.getBoundingClientRect();
+      
+      // Calculate click position relative to the wrapper center
+      const wrapperCenterX = wrapperRect.left + wrapperRect.width / 2;
+      const wrapperCenterY = wrapperRect.top + wrapperRect.height / 2;
+      
+      // Adjust click coordinates for zoom level
+      const adjustedClickX = wrapperCenterX + (e.clientX - wrapperCenterX) / zoomLevel;
+      const adjustedClickY = wrapperCenterY + (e.clientY - wrapperCenterY) / zoomLevel;
+      
+      // Now get the image's natural position and size (without zoom)
+      const img_naturalRect = img.getBoundingClientRect();
+      const naturalWidth = img_naturalRect.width / zoomLevel;
+      const naturalHeight = img_naturalRect.height / zoomLevel;
+      const naturalLeft = wrapperCenterX - naturalWidth / 2;
+      const naturalTop = wrapperCenterY - naturalHeight / 2;
       
       // Calculate the actual displayed image dimensions accounting for object-fit: contain
       const imgAspectRatio = img.naturalWidth / img.naturalHeight;
-      const containerAspectRatio = imgRect.width / imgRect.height;
+      const containerAspectRatio = naturalWidth / naturalHeight;
       
       let actualImageWidth, actualImageHeight, offsetX, offsetY;
       
       if (imgAspectRatio > containerAspectRatio) {
-        actualImageWidth = imgRect.width;
-        actualImageHeight = imgRect.width / imgAspectRatio;
+        actualImageWidth = naturalWidth;
+        actualImageHeight = naturalWidth / imgAspectRatio;
         offsetX = 0;
-        offsetY = (imgRect.height - actualImageHeight) / 2;
+        offsetY = (naturalHeight - actualImageHeight) / 2;
       } else {
-        actualImageWidth = imgRect.height * imgAspectRatio;
-        actualImageHeight = imgRect.height;
-        offsetX = (imgRect.width - actualImageWidth) / 2;
+        actualImageWidth = naturalHeight * imgAspectRatio;
+        actualImageHeight = naturalHeight;
+        offsetX = (naturalWidth - actualImageWidth) / 2;
         offsetY = 0;
       }
       
-      const relativeX = e.clientX - imgRect.left - offsetX;
-      const relativeY = e.clientY - imgRect.top - offsetY;
+      // Calculate position relative to the actual visible image content
+      const relativeX = adjustedClickX - naturalLeft - offsetX;
+      const relativeY = adjustedClickY - naturalTop - offsetY;
       
       const x = (relativeX / actualImageWidth) * 100;
       const y = (relativeY / actualImageHeight) * 100;
       
-      console.log('Click position:', x, y);
+      console.log('Zoom level:', zoomLevel);
+      console.log('Adjusted click position:', x, y);
       
       if(x < 0 || x > 100 || y < 0 || y > 100) {
         console.log('Click outside bounds');
