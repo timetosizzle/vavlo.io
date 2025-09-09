@@ -68,6 +68,13 @@ QUICK NAV
     .marker.active{outline:3px solid rgba(255,255,255,.35)}
     .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%, -120%);white-space:nowrap}
 
+    /* Pending marker animation for immediate feedback */
+    .marker.pending { opacity: .75; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
+      50%      { transform: translate(-50%, -50%) scale(1.15); }
+    }
+
     /* ===== [SEC:SIDEBAR] SIDEBAR ===== */
     .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
     .filters{display:flex;gap:8px;align-items:center}
@@ -330,6 +337,25 @@ QUICK NAV
       openNewCommentForm(xPct, yPct);
     });
 
+    // Pending marker helpers
+    function showPendingMarker(xPct, yPct){
+      if (!imageInner) return;
+      const existing = imageInner.querySelector('.marker.pending');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.className = 'marker unresolved pending';
+      el.style.left = xPct + '%';
+      el.style.top = yPct + '%';
+      el.textContent = '+';
+      imageInner.appendChild(el);
+    }
+
+    function removePendingMarker(){
+      if (!imageInner) return;
+      const existing = imageInner.querySelector('.marker.pending');
+      if (existing) existing.remove();
+    }
+
     function openNewCommentForm(xPct, yPct){
       const namePrefill = getSavedAuthor();
       const container = document.createElement('div'); container.className = 'new-comment comment';
@@ -344,6 +370,9 @@ QUICK NAV
       `;
       container.dataset.xpct = String(xPct); container.dataset.ypct = String(yPct);
       commentsEl.prepend(container);
+      
+      // Show pending marker
+      showPendingMarker(xPct, yPct);
     }
 
     commentsEl.addEventListener('click', (e)=>{
@@ -358,10 +387,12 @@ QUICK NAV
         setSavedAuthor(author);
         addComment({ xPct, yPct, author, text, resolved:false });
         wrap.remove();
+        removePendingMarker();
         return;
       }
       if (action === 'cancel-new'){
         const wrap = t.closest('.new-comment'); if (wrap) wrap.remove();
+        removePendingMarker();
         return;
       }
 
