@@ -391,57 +391,54 @@
         return;
       }
       
-      const imageWrapper = document.getElementById('imageWrapper');
       const img = document.getElementById('mainImage');
       
-      // Get the wrapper's bounding rect (this accounts for zoom transforms)
-      const wrapperRect = imageWrapper.getBoundingClientRect();
+      // Get the image's current bounding rect (includes zoom transform)
+      const imgRect = img.getBoundingClientRect();
       
-      // Calculate click position relative to the wrapper center
-      const wrapperCenterX = wrapperRect.left + wrapperRect.width / 2;
-      const wrapperCenterY = wrapperRect.top + wrapperRect.height / 2;
+      // Get click position relative to the image element
+      const clickX = e.clientX - imgRect.left;
+      const clickY = e.clientY - imgRect.top;
       
-      // Adjust click coordinates for zoom level
-      const adjustedClickX = wrapperCenterX + (e.clientX - wrapperCenterX) / zoomLevel;
-      const adjustedClickY = wrapperCenterY + (e.clientY - wrapperCenterY) / zoomLevel;
-      
-      // Now get the image's natural position and size (without zoom)
-      const img_naturalRect = img.getBoundingClientRect();
-      const naturalWidth = img_naturalRect.width / zoomLevel;
-      const naturalHeight = img_naturalRect.height / zoomLevel;
-      const naturalLeft = wrapperCenterX - naturalWidth / 2;
-      const naturalTop = wrapperCenterY - naturalHeight / 2;
+      console.log('Image rect:', imgRect);
+      console.log('Raw click position:', clickX, clickY);
       
       // Calculate the actual displayed image dimensions accounting for object-fit: contain
       const imgAspectRatio = img.naturalWidth / img.naturalHeight;
-      const containerAspectRatio = naturalWidth / naturalHeight;
+      const containerAspectRatio = imgRect.width / imgRect.height;
       
       let actualImageWidth, actualImageHeight, offsetX, offsetY;
       
       if (imgAspectRatio > containerAspectRatio) {
-        actualImageWidth = naturalWidth;
-        actualImageHeight = naturalWidth / imgAspectRatio;
+        // Image is wider - fit to width, center vertically
+        actualImageWidth = imgRect.width;
+        actualImageHeight = imgRect.width / imgAspectRatio;
         offsetX = 0;
-        offsetY = (naturalHeight - actualImageHeight) / 2;
+        offsetY = (imgRect.height - actualImageHeight) / 2;
       } else {
-        actualImageWidth = naturalHeight * imgAspectRatio;
-        actualImageHeight = naturalHeight;
-        offsetX = (naturalWidth - actualImageWidth) / 2;
+        // Image is taller - fit to height, center horizontally  
+        actualImageWidth = imgRect.height * imgAspectRatio;
+        actualImageHeight = imgRect.height;
+        offsetX = (imgRect.width - actualImageWidth) / 2;
         offsetY = 0;
       }
       
-      // Calculate position relative to the actual visible image content
-      const relativeX = adjustedClickX - naturalLeft - offsetX;
-      const relativeY = adjustedClickY - naturalTop - offsetY;
+      console.log('Actual image dimensions:', actualImageWidth, actualImageHeight);
+      console.log('Image offset:', offsetX, offsetY);
       
+      // Calculate position relative to the actual visible image content
+      const relativeX = clickX - offsetX;
+      const relativeY = clickY - offsetY;
+      
+      // Convert to percentage of the visible image
       const x = (relativeX / actualImageWidth) * 100;
       const y = (relativeY / actualImageHeight) * 100;
       
-      console.log('Zoom level:', zoomLevel);
-      console.log('Adjusted click position:', x, y);
+      console.log('Final position percentage:', x, y);
       
+      // Check if click is within the actual image bounds
       if(x < 0 || x > 100 || y < 0 || y > 100) {
-        console.log('Click outside bounds');
+        console.log('Click outside image bounds');
         return;
       }
       
@@ -647,7 +644,28 @@
     
     function toggleResolve(id){
       const arr=comments[currentProject.id][currentVersion];
-      const c=arr.find(x=>x.id===id); if(c){ c.resolved=!c.resolved; saveProject(); renderComments(); }
+      const c=arr.find(x=>x.id===id); 
+      if(c){ 
+        c.resolved=!c.resolved; 
+        
+        // Update the visual state immediately
+        const commentElement = document.querySelector(`[data-comment-id="${id}"]`);
+        if(commentElement) {
+          if(c.resolved) {
+            commentElement.classList.add('resolved');
+          } else {
+            commentElement.classList.remove('resolved');
+          }
+          
+          // Update the button text
+          const resolveBtn = commentElement.querySelector('.action-btn');
+          if(resolveBtn) {
+            resolveBtn.textContent = c.resolved ? 'Unresolve' : 'Resolve';
+          }
+        }
+        
+        saveProject(); 
+      }
     }
     
     function showReplyForm(id){
