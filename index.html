@@ -35,18 +35,24 @@ QUICK NAV
     .brand{display:flex;align-items:center}
     .brand img{height:22px}
     .spacer{flex:1}
+    
+    /* Project info in topbar */
+    .project-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+    .info-pill{white-space:nowrap;font-weight:normal}
+    
     select,.btn,input[type="text"],textarea{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);border-radius:8px;padding:8px 10px}
     select:focus,.btn:focus,input:focus,textarea:focus{outline:2px solid var(--pink);outline-offset:2px}
     .btn{cursor:pointer}
+    .btn.primary{background:var(--pink);border-color:var(--pink);color:#fff}
     .icon-btn{width:34px;height:34px;display:inline-grid;place-items:center;border-radius:8px}
 
     /* ===== [SEC:SHARE] SHARE STRIP ===== */
     .share-strip{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
-    .btn.primary{background:var(--pink);border-color:transparent}
+    .share-spacer{flex:1}
+    .share-controls{display:flex;align-items:center;gap:12px}
 
     /* ===== LAYOUT WRAP ===== */
-    .wrap{display:grid;grid-template-columns:1fr 380px;height:calc(100% - 94px)}
+    .wrap{display:grid;grid-template-columns:1fr 380px;height:calc(100% - 98px)}
     .canvas-area{position:relative;overflow:auto;background:radial-gradient(1200px 1200px at 50% -10%, #1a1f3e, #0f1221 60%)}
     .sidebar{border-left:1px solid var(--line);background:var(--panel);overflow:auto}
 
@@ -66,14 +72,9 @@ QUICK NAV
     .marker.unresolved{background:var(--pink)}
     .marker.resolved{background:var(--gray)}
     .marker.active{outline:3px solid rgba(255,255,255,.35)}
-    .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%, -120%);white-space:nowrap}
-
-    /* Pending marker animation for immediate feedback */
-    .marker.pending { opacity: .75; animation: pulse 1.4s ease-in-out infinite; }
-    @keyframes pulse {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); }
-      50%      { transform: translate(-50%, -50%) scale(1.15); }
-    }
+    .marker.pending{opacity:.75;animation:pulse 1.4s ease-in-out infinite}
+    @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}}
+    .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%,-120%);white-space:nowrap}
 
     /* ===== [SEC:SIDEBAR] SIDEBAR ===== */
     .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -90,50 +91,68 @@ QUICK NAV
     .reply{border-left:3px solid var(--line);margin:6px 0 0 8px;padding-left:8px}
 
     .comment-actions{display:flex;flex-wrap:wrap;gap:6px}
-    .comment-actions .btn{color:#fff;border:none}
-    .btn.resolve.unresolved{background:var(--pink)}
-    .btn.resolve.resolved{background:var(--gray)}
-    .btn.reply{background:var(--blue)}
-    .btn.edit{background:var(--violet)}
-    .btn.delete{background:var(--danger)}
+    .comment-actions .btn{font-size:12px;padding:6px 10px;background:var(--panel);border:1px solid var(--line);color:var(--text)}
+    .comment-actions .btn:hover{background:var(--panel-2)}
+    .reply-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+    .reply-actions .btn{font-size:11px;padding:4px 8px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
 
     /* Form rows used in new-comment and reply */
     .form-row{margin:8px 0}
 
     /* Share input width control */
-    #shareLink{width:520px;max-width:60vw}
+    #shareLink{min-width:0}
 
     /* Wider zoom display */
-    #zoomReset{ min-width: 120px; }
+    #zoomReset{min-width:120px}
+    
+    /* FINAL FIX - Share link styling at end to override other rules */
+    #shareLink{
+      flex:1 !important;
+      width:auto !important;
+      min-width:400px !important;
+      max-width:none !important;
+      background:var(--panel-2) !important;
+    }
   </style>
 </head>
 <body>
   <!-- [SEC:TOPBAR] -->
   <div class="topbar">
     <div class="brand"><img src="Vavlo - logo- white@1000x.png" alt="Vavlo" /></div>
+    
     <!-- [SEC:VERSIONS] -->
     <div class="versions">
       <label for="version" class="sr">Version</label>
       <select id="version" title="Version" data-testid="version-select">
-        <option value="">Select Version</option>
+        <option value="">No versions yet</option>
       </select>
     </div>
+    
     <button class="btn" id="uploadNewVersion" data-testid="btn-upload-version">Upload New Version</button>
+    
     <!-- [SEC:ZOOM] -->
     <div class="zoom-group" style="margin-left:6px">
       <button class="btn icon-btn" id="zoomOut" data-testid="btn-zoom-out" title="Zoom out" aria-label="Zoom out">-</button>
       <button class="btn icon-btn" id="zoomReset" data-testid="btn-zoom-reset" title="Reset zoom" aria-label="Reset zoom">100%</button>
       <button class="btn icon-btn" id="zoomIn" data-testid="btn-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
     </div>
+    
     <div class="spacer"></div>
+    
+    <!-- Project info pills -->
+    <div class="project-info">
+      <span class="info-pill">Expires: <span id="expiresText">-</span></span>
+      <span class="info-pill">Accesses: <span id="accessText">0</span></span>
+    </div>
   </div>
 
   <!-- [SEC:SHARE] -->
   <div class="share-strip">
-    <span class="pill">Expires: <strong id="expiresText">-</strong></span>
-    <span class="pill">Accesses: <strong id="accessText">0</strong></span>
-    <input id="shareLink" type="text" readonly placeholder="Share link will appear here" />
-    <button class="btn" id="copyShare">Copy</button>
+    <div class="share-spacer"></div>
+    <div class="share-controls">
+      <input id="shareLink" type="text" readonly placeholder="Share link will appear here" />
+      <button class="btn primary" id="copyShare">Copy</button>
+    </div>
   </div>
 
   <div class="wrap">
@@ -175,24 +194,6 @@ QUICK NAV
   </div>
 
   <script>
-    /* EVENT MAP
-    click #zoomIn ........................ onZoomIn
-    click #zoomOut ....................... onZoomOut
-    click #zoomReset ..................... fitToViewport
-    click .image-inner ................... addComment at click coords
-    click [data-action=toggle-resolve] ... onToggleResolve
-    click [data-action=delete] ........... onDeleteComment
-    click [data-action=reply] ............ onReply
-    click [data-action=save-new] ......... saveNewComment
-    click [data-action=cancel-new] ....... cancelNewForm
-    click [data-action=submit] ........... save this comment explicitly
-    input .text[data-id] ................. syncCommentText
-    change #filterSelect ................. applyFilter
-    change #version ...................... onSelectVersion
-    click #copyShare ..................... copyShareLink
-    click #uploadNewVersion .............. addNewVersionFromFile
-    */
-
     // [SEC:STATE]
     /** @typedef {{rid:number, author:string, text:string, createdAt:string}} ReplyItem */
     /** @typedef {{ id:number, xPct:number, yPct:number, resolved:boolean, author:string, text:string, createdAt:string, replies:ReplyItem[] }} CommentItem */
@@ -264,9 +265,16 @@ QUICK NAV
       uniq.sort((a,b)=> (parseInt(b.replace(/\D/g,''))||0) - (parseInt(a.replace(/\D/g,''))||0));
       state.versionOrder = uniq;
       versionSelect.innerHTML = '';
-      uniq.forEach(v => {
-        const opt = document.createElement('option'); opt.value = v; opt.textContent = v; versionSelect.appendChild(opt);
-      });
+      if (uniq.length === 0) {
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'v0';
+        versionSelect.appendChild(defaultOpt);
+      } else {
+        uniq.forEach(v => {
+          const opt = document.createElement('option'); opt.value = v; opt.textContent = v; versionSelect.appendChild(opt);
+        });
+      }
       if (state.currentVersion == null && uniq.length){ state.currentVersion = uniq[0]; }
       versionSelect.value = state.currentVersion || '';
     }
@@ -291,6 +299,15 @@ QUICK NAV
     dropzone.addEventListener('dragleave', ()=> { dropzone.style.borderColor = 'var(--line)'; });
     dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--line)'; const file = e.dataTransfer.files && e.dataTransfer.files[0]; if (file) addNewVersionFromFile(file); });
     fileInput.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; if (file) addNewVersionFromFile(file); });
+
+    // Upload New Version button
+    uploadBtn.addEventListener('click', () => {
+      if (state.sharedMode) {
+        alert('Uploading new versions is disabled for shared viewers.');
+        return;
+      }
+      fileInput.click();
+    });
 
     async function ensureProjectIdAndLink(){
       if (!state.projectId){
@@ -439,6 +456,27 @@ QUICK NAV
         const block = t.closest('.reply-area'); if (block) block.innerHTML = '';
         return;
       }
+      if (action === 'edit-reply'){
+        const rid = +(t.getAttribute('data-rid') || 0);
+        const editable = commentsEl.querySelector(`.reply-text[data-rid="${rid}"]`); 
+        if (editable){ editable.focus(); }
+        return;
+      }
+      if (action === 'delete-reply'){
+        const rid = +(t.getAttribute('data-rid') || 0);
+        if (!confirm('Delete this reply?')) return;
+        c.replies = c.replies.filter(r => r.rid !== rid);
+        renderComments(); autoSave();
+        return;
+      }
+      if (action === 'save-reply-edit'){
+        const rid = +(t.getAttribute('data-rid') || 0);
+        const editable = commentsEl.querySelector(`.reply-text[data-rid="${rid}"]`);
+        const reply = c.replies.find(r => r.rid === rid);
+        if (editable && reply){ reply.text = editable.textContent || ''; }
+        autoSave();
+        return;
+      }
       if (action === 'submit'){
         const editable = commentsEl.querySelector(`.text[data-id="${id}"]`);
         if (editable){ c.text = editable.textContent || ''; }
@@ -465,6 +503,13 @@ QUICK NAV
         const id = +(t.getAttribute('data-id') || 0);
         const v = state.versions[state.currentVersion]; const c = v.comments.find(x=> x.id === id);
         if (c){ c.text = t.textContent || ''; autoSaveSoon(); }
+      }
+      if (t.classList.contains('reply-text')){
+        const id = +(t.getAttribute('data-id') || 0);
+        const rid = +(t.getAttribute('data-rid') || 0);
+        const v = state.versions[state.currentVersion]; const c = v.comments.find(x=> x.id === id);
+        const reply = c && c.replies.find(r => r.rid === rid);
+        if (reply){ reply.text = t.textContent || ''; autoSaveSoon(); }
       }
     });
 
@@ -506,31 +551,38 @@ QUICK NAV
       const v = state.versions[state.currentVersion];
       const filter = filterSelect.value;
       commentsEl.innerHTML = '';
-      v.comments
+      const filteredComments = v.comments
         .filter(c => filter==='all' ? true : filter==='resolved' ? c.resolved : !c.resolved)
-        .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt))
-        .forEach(c => {
+        .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+      
+      filteredComments.forEach((c, index) => {
+          const displayNumber = index + 1; // Sequential numbering
           const card = document.createElement('div'); card.className = `comment ${c.resolved ? 'resolved':''}`;
           card.innerHTML = `
             <div class="row">
-              <span class="badge ${c.resolved ? 'resolved' : ''}">#${c.id}</span>
+              <span class="badge ${c.resolved ? 'resolved' : ''}">#${displayNumber}</span>
               <span><strong>${sanitize(c.author || 'Anon')}</strong></span>
               <span class="meta">${formatTime(c.createdAt)}</span>
               <span class="meta">${c.resolved ? 'Resolved' : 'Unresolved'}</span>
             </div>
             <div class="text" contenteditable="true" data-id="${c.id}">${sanitize(c.text)}</div>
             <div class="comment-actions">
-              <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
-              <button class="btn reply" data-action="reply" data-id="${c.id}">Reply</button>
-              <button class="btn edit" data-action="edit" data-id="${c.id}">Edit</button>
-              <button class="btn delete" data-action="delete" data-id="${c.id}">Delete</button>
-              <button class="btn" data-action="submit" data-id="${c.id}">Submit</button>
+              <button class="btn" data-action="toggle-resolve" data-id="${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
+              <button class="btn" data-action="reply" data-id="${c.id}">Reply</button>
+              <button class="btn" data-action="edit" data-id="${c.id}">Edit</button>
+              <button class="btn" data-action="delete" data-id="${c.id}">Delete</button>
+              <button class="btn" data-action="submit" data-id="${c.id}">Save</button>
             </div>
             <div class="reply-area" data-id="${c.id}"></div>
             ${c.replies.map(r => `
               <div class="reply">
                 <div class="meta"><strong>${sanitize(r.author || 'Anon')}</strong> • ${formatTime(r.createdAt)}</div>
-                <div>${sanitize(r.text)}</div>
+                <div class="reply-text" contenteditable="true" data-rid="${r.rid}" data-id="${c.id}">${sanitize(r.text)}</div>
+                <div class="reply-actions">
+                  <button class="btn" data-action="edit-reply" data-rid="${r.rid}" data-id="${c.id}">Edit</button>
+                  <button class="btn" data-action="delete-reply" data-rid="${r.rid}" data-id="${c.id}">Delete</button>
+                  <button class="btn" data-action="save-reply-edit" data-rid="${r.rid}" data-id="${c.id}">Save</button>
+                </div>
               </div>
             `).join('')}
           `;
@@ -556,10 +608,15 @@ QUICK NAV
 
     // [SEC:SHARECODE]
     function updateExpiryUI(){
-      if (!state.expiresAt){ expiresText.textContent = '-'; return; }
-      const now = Date.now(); const exp = new Date(state.expiresAt).getTime();
+      if (!state.expiresAt){ 
+        expiresText.textContent = '-'; 
+        return; 
+      }
+      const now = Date.now(); 
+      const exp = new Date(state.expiresAt).getTime();
       const days = Math.max(0, Math.ceil((exp - now) / (1000*60*60*24)));
-      expiresText.textContent = `${new Date(state.expiresAt).toLocaleDateString()} (${days} days)`;
+      // Shorter format to fit in topbar
+      expiresText.textContent = `${new Date(state.expiresAt).toLocaleDateString()} (${days}d)`;
       accessText.textContent = String(state.accessCount || 0);
     }
 
@@ -568,6 +625,7 @@ QUICK NAV
       if (!link){ await ensureProjectIdAndLink(); link = shareInput.value; }
       try{ await navigator.clipboard.writeText(link); alert('Share link copied'); }catch(e){ alert('Copy failed'); }
     }
+    
     document.getElementById('copyShare').addEventListener('click', copyShareLink);
 
     async function saveProject(){
@@ -614,10 +672,26 @@ QUICK NAV
     // Init
     (async function init(){
       await resolveWorkerBase();
+      
+      // DEBUG: Check if shareLink element exists and what its actual ID is
+      console.log('=== SHARELINK DEBUG ===');
+      const shareEl = document.getElementById('shareLink');
+      console.log('shareLink element:', shareEl);
+      console.log('shareLink ID:', shareEl ? shareEl.id : 'ELEMENT NOT FOUND');
+      console.log('shareLink tagName:', shareEl ? shareEl.tagName : 'N/A');
+      console.log('All elements with share in ID:', Array.from(document.querySelectorAll('[id*="share"]')).map(el => el.id));
+      
       const shared = new URLSearchParams(location.search).get('shared');
-      if (shared){ state.sharedMode = true; uploadBtn.disabled = true; uploadBtn.title = 'Uploads disabled for shared viewers'; loadProjectFromShared(shared); return; }
+      if (shared){ 
+        state.sharedMode = true; 
+        uploadBtn.disabled = true; 
+        uploadBtn.title = 'Uploads disabled for shared viewers'; 
+        loadProjectFromShared(shared); 
+        return; 
+      }
       await ensureProjectIdAndLink();
-      setVersions([]); updateExpiryUI();
+      setVersions([]); 
+      updateExpiryUI();
     })();
   </script>
 </body>
