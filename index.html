@@ -43,11 +43,9 @@
     .back-btn:hover{background:var(--brand-surface-hover)}
     .project-title{font-size:18px;font-weight:600}
     .version-selector{padding:8px 12px;border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px;background:var(--brand-surface);color:#fff}
-    /* Inline zoom controls in header, right of version dropdown */
     .zoom-inline{display:flex;gap:8px;margin-left:4px}
     .zoom-inline .zoom-btn{background:var(--brand-surface);border:1px solid var(--brand-border-strong);color:#fff;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:14px;line-height:1}
     .zoom-inline .zoom-btn:hover{background:var(--brand-accent-light)}
-
     .header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
     .share-link{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--brand-surface);border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px}
     .share-link input{width:340px;background:transparent;color:#fff;border:none;outline:none}
@@ -56,11 +54,10 @@
     .image-container{flex:1;position:relative;overflow:hidden;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
     .image-wrapper{position:relative;max-width:100%;max-height:100%;cursor:crosshair;transform-origin:center center}
     .main-image{max-width:100%;max-height:100%;object-fit:contain;user-select:none;transition:transform .2s ease}
-
     .annotation-marker{position:absolute;width:12px;height:12px;background:var(--brand-accent);border:2px solid #fff;border-radius:50%;cursor:pointer;transform:translate(-50%,-50%);z-index:10;box-shadow:0 2px 8px var(--brand-accent-strong);transition:.2s}
     .annotation-marker:hover{transform:translate(-50%,-50%) scale(1.2);background:var(--brand-accent-hover)}
     .annotation-marker.active{background:#fff;border-color:var(--brand-accent);transform:translate(-50%,-50%) scale(1.3)}
-
+    .annotation-marker.pending{opacity:0.7;animation:pulse 1.5s infinite}
     .sidebar{width:400px;background:var(--brand-surface);border-left:1px solid var(--brand-border);display:flex;flex-direction:column}
     .sidebar-header{padding:20px 24px;border-bottom:1px solid var(--brand-border)}
     .sidebar-title{font-size:18px;font-weight:600;margin-bottom:16px}
@@ -89,6 +86,10 @@
     .upload-new-version{padding:10px 12px;border:2px dashed var(--brand-border-dashed);border-radius:8px;text-align:center;cursor:pointer;color:#fff}
     .upload-new-version:hover{border-color:var(--brand-accent);background:var(--brand-accent-light)}
     .shared-mode-indicator{font-size:12px;color:var(--brand-text-subtle);background:var(--brand-accent-light);padding:6px 12px;border-radius:6px}
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -111,7 +112,6 @@
         <button class="back-btn" onclick="goBack()">←</button>
         <div class="project-title" id="projectTitle">Untitled Project</div>
         <select class="version-selector" id="versionSelector"></select>
-        <!-- Inline zoom controls next to version dropdown -->
         <div class="zoom-inline" role="group" aria-label="Zoom controls">
           <button class="zoom-btn" title="Zoom in" onclick="zoomIn()">＋</button>
           <button class="zoom-btn" title="Reset zoom" onclick="resetZoom()">⤾</button>
@@ -166,6 +166,8 @@
   </div>
 
   <script>
+    console.log('JavaScript starting...');
+    
     // Worker base URL
     const WORKER_BASE = "https://vavlo-worker.bear-8c2.workers.dev";
 
@@ -180,19 +182,35 @@
 
     const TTL_DAYS = 90;
 
-    document.addEventListener('DOMContentLoaded', () => {
-      setupListeners();
-      loadFromUrl();
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM Content Loaded');
+      initializeApp();
     });
 
+    // Backup initialization
+    window.addEventListener('load', function() {
+      console.log('Window Load Event');
+      if (!currentProject) {
+        initializeApp();
+      }
+    });
+
+    function initializeApp() {
+      console.log('Initializing app...');
+      setupListeners();
+      loadFromUrl();
+    }
+
     function setupListeners(){
+      console.log('Setting up event listeners...');
       const fileInput = document.getElementById('fileInput');
       const uploadArea = document.getElementById('uploadArea');
       const newVersionInput = document.getElementById('newVersionInput');
       const uploadVersionBtn = document.getElementById('uploadVersionBtn');
 
       fileInput.addEventListener('change', e => { const f = e.target.files[0]; if (f) createNewProject(f); });
-      newVersionInput.addEventListener('change', e => { const f = e.target.files[0]; if (f && currentProject) addNewVersion(f); });
+      newVersionInput.addEventListener('change', e => { const f = e.target.files[0]; if (f && currentProject && !viewerMode) addNewVersion(f); });
 
       uploadArea.addEventListener('click', () => fileInput.click());
       uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
@@ -203,13 +221,45 @@
         if (f && f.type.startsWith('image/')) createNewProject(f);
       });
 
-      document.getElementById('imageWrapper').addEventListener('click', handleImageClick);
       document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
       uploadVersionBtn.addEventListener('click', () => {
         if (!viewerMode) {
           document.getElementById('newVersionInput').click();
         }
       });
+    }
+
+    // Load via shared URL
+    async function loadFromUrl(){
+      console.log('loadFromUrl called');
+      const p = new URLSearchParams(location.search);
+      const shared = p.get('shared');
+      console.log('Shared parameter:', shared);
+      
+      if(shared){
+        console.log('Loading shared project...');
+        viewerMode = true;
+        try{
+          console.log('Fetching shared data from:', shared);
+          const res = await fetch(shared);
+          if(!res.ok) throw new Error('Unable to load shared project');
+          const data = await res.json();
+          console.log('Shared data loaded:', data);
+          
+          currentProject = data.project;
+          comments[currentProject.id] = data.comments || {};
+          currentVersion = currentProject.versions.length;
+          
+          console.log('About to show dashboard...');
+          showDashboard();
+          
+        }catch(error){
+          console.error('Error loading shared project:', error);
+          alert('This shared link may have expired or is invalid.');
+        }
+      } else {
+        console.log('No shared parameter found');
+      }
     }
 
     // Worker API helpers
@@ -219,7 +269,7 @@
       fd.append('key', key);
       const res = await fetch(`${WORKER_BASE}/upload`, { method:'POST', body: fd });
       if(!res.ok) throw new Error(await res.text());
-      return res.json(); // { imageUrl }
+      return res.json();
     }
     async function workerSaveProject(project, commentsByVersion){
       const res = await fetch(`${WORKER_BASE}/save-project`,{
@@ -228,7 +278,7 @@
         body: JSON.stringify({ project, comments: commentsByVersion })
       });
       if(!res.ok) throw new Error(await res.text());
-      return res.json(); // { sharedJsonUrl }
+      return res.json();
     }
 
     // Create project
@@ -282,28 +332,8 @@
       }
     }
 
-    // Load via shared URL
-    async function loadFromUrl(){
-      const p = new URLSearchParams(location.search);
-      const shared = p.get('shared');
-      if(shared){
-        viewerMode = true;
-        try{
-          const res = await fetch(shared);
-          if(!res.ok) throw new Error('Unable to load shared project');
-          const data = await res.json();
-          currentProject = data.project;
-          comments[currentProject.id] = data.comments || {};
-          currentVersion = currentProject.versions.length;
-          showDashboard();
-        }catch{
-          alert('This shared link may have expired or is invalid.');
-        }
-      }
-    }
-
-    // UI and comments
     function showDashboard(){
+      console.log('Showing dashboard...');
       document.getElementById('uploadPage').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('projectTitle').textContent = currentProject.name;
@@ -314,15 +344,131 @@
       updateExpiresBadge();
 
       const newForm = document.getElementById('newCommentForm');
+      newForm.style.display = 'none';
+      
+      const uploadBtn = document.getElementById('uploadVersionBtn');
       if(viewerMode){ 
-        newForm.style.display = 'none';
-        // Show viewer mode indicator but still keep upload button visible
-        document.getElementById('uploadVersionBtn').style.opacity = '0.5';
-        document.getElementById('uploadVersionBtn').style.cursor = 'not-allowed';
+        uploadBtn.style.opacity = '0.5';
+        uploadBtn.style.cursor = 'not-allowed';
+        uploadBtn.title = 'Upload disabled in shared view';
       } else { 
-        newForm.style.display = 'none';
-        document.getElementById('uploadVersionBtn').style.opacity = '1';
-        document.getElementById('uploadVersionBtn').style.cursor = 'pointer';
+        uploadBtn.style.opacity = '1';
+        uploadBtn.style.cursor = 'pointer';
+        uploadBtn.title = '';
+      }
+      
+      // Setup image click handler
+      setTimeout(() => {
+        setupImageClickHandler();
+      }, 100);
+    }
+
+    function setupImageClickHandler() {
+      console.log('Setting up image click handler...');
+      const imageWrapper = document.getElementById('imageWrapper');
+      const img = document.getElementById('mainImage');
+      
+      if (imageWrapper && img) {
+        // Clear existing handlers
+        imageWrapper.onclick = null;
+        img.onclick = null;
+        
+        // Add click handler to image
+        img.addEventListener('click', function(e) {
+          console.log('Image clicked!');
+          e.stopPropagation();
+          handleImageClick(e);
+        });
+        
+        console.log('Image click handler setup complete');
+      }
+    }
+
+    function handleImageClick(e){
+      console.log('handleImageClick called');
+      if(isAddingComment) {
+        console.log('Already adding comment, returning');
+        return;
+      }
+      
+      const img = document.getElementById('mainImage');
+      const imgRect = img.getBoundingClientRect();
+      
+      // Calculate the actual displayed image dimensions accounting for object-fit: contain
+      const imgAspectRatio = img.naturalWidth / img.naturalHeight;
+      const containerAspectRatio = imgRect.width / imgRect.height;
+      
+      let actualImageWidth, actualImageHeight, offsetX, offsetY;
+      
+      if (imgAspectRatio > containerAspectRatio) {
+        actualImageWidth = imgRect.width;
+        actualImageHeight = imgRect.width / imgAspectRatio;
+        offsetX = 0;
+        offsetY = (imgRect.height - actualImageHeight) / 2;
+      } else {
+        actualImageWidth = imgRect.height * imgAspectRatio;
+        actualImageHeight = imgRect.height;
+        offsetX = (imgRect.width - actualImageWidth) / 2;
+        offsetY = 0;
+      }
+      
+      const relativeX = e.clientX - imgRect.left - offsetX;
+      const relativeY = e.clientY - imgRect.top - offsetY;
+      
+      const x = (relativeX / actualImageWidth) * 100;
+      const y = (relativeY / actualImageHeight) * 100;
+      
+      console.log('Click position:', x, y);
+      
+      if(x < 0 || x > 100 || y < 0 || y > 100) {
+        console.log('Click outside bounds');
+        return;
+      }
+      
+      console.log('Starting comment creation');
+      isAddingComment = true; 
+      pendingCommentPosition = {x, y};
+      
+      showPendingMarker(x, y);
+      
+      const commentForm = document.getElementById('newCommentForm');
+      commentForm.style.display = 'block';
+      document.getElementById('authorName').focus();
+      console.log('Comment form displayed');
+    }
+    
+    function showPendingMarker(x, y) {
+      console.log('showPendingMarker called with:', x, y);
+      
+      const existingPending = document.querySelector('.annotation-marker.pending');
+      if (existingPending) {
+        console.log('Removing existing pending marker');
+        existingPending.remove();
+      }
+      
+      const marker = document.createElement('div');
+      marker.className = 'annotation-marker pending';
+      marker.style.position = 'absolute';
+      marker.style.left = x + '%';
+      marker.style.top = y + '%';
+      marker.style.width = '12px';
+      marker.style.height = '12px';
+      marker.style.background = 'var(--brand-accent)';
+      marker.style.border = '2px solid #fff';
+      marker.style.borderRadius = '50%';
+      marker.style.transform = 'translate(-50%, -50%)';
+      marker.style.zIndex = '10';
+      marker.style.boxShadow = '0 2px 8px var(--brand-accent-strong)';
+      marker.style.opacity = '0.7';
+      marker.style.animation = 'pulse 1.5s infinite';
+      marker.title = 'New annotation...';
+      
+      const imageWrapper = document.getElementById('imageWrapper');
+      if (imageWrapper) {
+        imageWrapper.appendChild(marker);
+        console.log('Pending marker added to imageWrapper');
+      } else {
+        console.error('imageWrapper not found!');
       }
     }
 
@@ -354,60 +500,18 @@
         setTimeout(() => {
           renderAnnotations(); 
           applyZoom();
+          setupImageClickHandler(); // Re-setup after image loads
         }, 100);
       };
     }
     function handleVersionChange(e){ currentVersion=parseInt(e.target.value,10); loadVersion(currentVersion); renderComments(); }
 
-    // Comments
-    function handleImageClick(e){
-      if(viewerMode || isAddingComment) return;
-      
-      const img = document.getElementById('mainImage');
-      const imgRect = img.getBoundingClientRect();
-      
-      // Calculate the actual displayed image dimensions accounting for object-fit: contain
-      const imgAspectRatio = img.naturalWidth / img.naturalHeight;
-      const containerAspectRatio = imgRect.width / imgRect.height;
-      
-      let actualImageWidth, actualImageHeight, offsetX, offsetY;
-      
-      if (imgAspectRatio > containerAspectRatio) {
-        // Image is wider - fit to width, center vertically
-        actualImageWidth = imgRect.width;
-        actualImageHeight = imgRect.width / imgAspectRatio;
-        offsetX = 0;
-        offsetY = (imgRect.height - actualImageHeight) / 2;
-      } else {
-        // Image is taller - fit to height, center horizontally
-        actualImageWidth = imgRect.height * imgAspectRatio;
-        actualImageHeight = imgRect.height;
-        offsetX = (imgRect.width - actualImageWidth) / 2;
-        offsetY = 0;
-      }
-      
-      // Calculate position relative to the actual visible image content
-      const relativeX = e.clientX - imgRect.left - offsetX;
-      const relativeY = e.clientY - imgRect.top - offsetY;
-      
-      const x = (relativeX / actualImageWidth) * 100;
-      const y = (relativeY / actualImageHeight) * 100;
-      
-      // Check if click is within the actual image bounds
-      if(x < 0 || x > 100 || y < 0 || y > 100) return;
-      
-      isAddingComment = true; 
-      pendingCommentPosition = {x, y};
-      document.getElementById('newCommentForm').style.display = 'block';
-      document.getElementById('authorName').focus();
-    }
-    
     function submitComment(){
+      console.log('submitComment called');
       const author=document.getElementById('authorName').value.trim();
       const text=document.getElementById('commentText').value.trim();
       if(!author||!text||!pendingCommentPosition) return;
       
-      // Remove pending marker
       const pendingMarker = document.querySelector('.annotation-marker.pending');
       if (pendingMarker) pendingMarker.remove();
       
@@ -421,8 +525,9 @@
       saveProject();
       renderComments(); renderAnnotations();
     }
+    
     function cancelComment(){ 
-      // Remove pending marker
+      console.log('cancelComment called');
       const pendingMarker = document.querySelector('.annotation-marker.pending');
       if (pendingMarker) pendingMarker.remove();
       
@@ -432,36 +537,52 @@
       document.getElementById('authorName').value=''; 
       document.getElementById('commentText').value='';
     }
+    
     function renderComments(){
+      console.log('renderComments called');
       const container=document.getElementById('commentsContainer');
       const arr=comments[currentProject.id]?.[currentVersion]||[];
       if(!arr.length){ 
-        const noCommentsText = viewerMode ? 'No comments available.' : 'No comments yet. Click the image to add one.';
-        container.innerHTML=`<div class="upload-subtext" style="padding:24px;">${noCommentsText}</div>`; 
+        container.innerHTML='<div class="upload-subtext" style="padding:24px;">No comments yet. Click the image to add one.</div>'; 
         return; 
       }
-      container.innerHTML=''; arr.forEach((c,i)=>container.appendChild(commentEl(c,i+1)));
+      container.innerHTML=''; 
+      arr.forEach((c,i)=>container.appendChild(commentEl(c,i+1)));
     }
+    
     function commentEl(c,n){
-      const d=document.createElement('div'); d.className='comment-item'; d.dataset.commentId=c.id;
+      const d=document.createElement('div'); 
+      d.className='comment-item'; 
+      d.dataset.commentId=c.id;
       d.innerHTML=`
         <div class="comment-header">
           <span class="comment-author"><span class="comment-number">#${n}</span> ${escapeHtml(c.author)}</span>
           <span class="comment-time">${new Date(c.timestamp).toLocaleString()}</span>
         </div>
         <div class="comment-text">${escapeHtml(c.text)}</div>
-        ${viewerMode?'':`
-        <div class="comment-actions">
-          <button class="action-btn" onclick="toggleResolve('${c.id}')">${c.resolved?'Unresolve':'Resolve'}</button>
-          <button class="action-btn" onclick="showReplyForm('${c.id}')">Reply</button>
-          <button class="action-btn" onclick="editComment('${c.id}')">Edit</button>
-          <button class="action-btn" onclick="deleteComment('${c.id}')">Delete</button>
-        </div>`}
+        <div class="comment-actions" style="display: flex !important; gap: 8px; font-size: 12px; margin-top: 8px;">
+          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="toggleResolve('${c.id}')">
+            ${c.resolved?'Unresolve':'Resolve'}
+          </button>
+          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="showReplyForm('${c.id}')">
+            Reply
+          </button>
+          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="editComment('${c.id}')">
+            Edit
+          </button>
+          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="deleteComment('${c.id}')">
+            Delete
+          </button>
+        </div>
         <div class="replies" id="replies-${c.id}"></div>`;
-      if(c.replies?.length){ const rc=d.querySelector(`#replies-${c.id}`); c.replies.forEach(r=>rc.appendChild(replyEl(r,c.id))); }
+      if(c.replies?.length){ 
+        const rc=d.querySelector(`#replies-${c.id}`); 
+        c.replies.forEach(r=>rc.appendChild(replyEl(r,c.id))); 
+      }
       d.addEventListener('click',()=>highlightAnnotation(c.id));
       return d;
     }
+    
     function replyEl(r,pid){
       const d=document.createElement('div'); d.className='comment-item';
       d.innerHTML=`
@@ -469,31 +590,32 @@
           <span class="comment-author">${escapeHtml(r.author)}</span>
           <span class="comment-time">${new Date(r.timestamp).toLocaleString()}</span>
         </div>
-        <div class="comment-text">${escapeHtml(r.text)}</div>`;
+        <div class="comment-text">${escapeHtml(r.text)}</div>
+        <div class="comment-actions" style="display: flex; gap: 8px; font-size: 12px; margin-top: 8px;">
+          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="editReply('${pid}', '${r.id}')">Edit</button>
+          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="deleteReply('${pid}', '${r.id}')">Delete</button>
+        </div>`;
       return d;
     }
+    
     function renderAnnotations(){
-      // Remove existing markers
-      document.querySelectorAll('.annotation-marker').forEach(m=>m.remove());
+      document.querySelectorAll('.annotation-marker:not(.pending)').forEach(m=>m.remove());
       
       const arr=comments[currentProject.id]?.[currentVersion]||[];
-      const img = document.getElementById('mainImage');
+      const imageWrapper = document.getElementById('imageWrapper');
       
       arr.forEach(c=>{
         const m=document.createElement('div'); 
         m.className='annotation-marker'; 
         m.dataset.commentId=c.id;
-        
-        // Position relative to the image itself
         m.style.left=c.position.x+'%'; 
         m.style.top=c.position.y+'%';
         m.title = `${c.author}: ${c.text.slice(0,50)}${c.text.length>50?'...':''}`;
         m.addEventListener('click',e=>{e.stopPropagation(); highlightAnnotation(c.id);});
-        
-        // Append to the image wrapper so it scales with zoom
-        document.getElementById('imageWrapper').appendChild(m);
+        imageWrapper.appendChild(m);
       });
     }
+    
     function highlightAnnotation(id){
       document.querySelectorAll('.annotation-marker').forEach(m=>m.classList.remove('active'));
       document.querySelectorAll('.comment-item').forEach(i=>i.classList.remove('highlighted'));
@@ -502,13 +624,13 @@
       if(marker) marker.classList.add('active');
       if(item){ item.classList.add('highlighted'); item.scrollIntoView({behavior:'smooth',block:'center'}); }
     }
+    
     function toggleResolve(id){
-      if(viewerMode) return;
       const arr=comments[currentProject.id][currentVersion];
       const c=arr.find(x=>x.id===id); if(c){ c.resolved=!c.resolved; saveProject(); renderComments(); }
     }
+    
     function showReplyForm(id){
-      if(viewerMode) return;
       document.querySelectorAll('.reply-form').forEach(f=>f.remove());
       const rc=document.getElementById(`replies-${id}`);
       const f=document.createElement('div'); f.className='reply-form';
@@ -521,6 +643,7 @@
         </div>`;
       rc.appendChild(f); document.getElementById(`reply-author-${id}`).focus();
     }
+    
     function submitReply(id){
       const a=document.getElementById(`reply-author-${id}`).value.trim();
       const t=document.getElementById(`reply-text-${id}`).value.trim();
@@ -529,9 +652,10 @@
       const c=arr.find(x=>x.id===id);
       if(c){ if(!c.replies) c.replies=[]; c.replies.push({id:genCommentId(), author:a, text:t, timestamp:new Date()}); saveProject(); renderComments(); renderAnnotations(); }
     }
+    
     function cancelReply(id){ const f=document.querySelector(`#replies-${id} .reply-form`); if(f) f.remove(); }
+    
     function editComment(id){
-      if(viewerMode) return;
       const arr=comments[currentProject.id][currentVersion];
       const c=arr.find(x=>x.id===id);
       const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`);
@@ -548,6 +672,7 @@
         document.getElementById(`edit-${id}`).focus();
       }
     }
+    
     function saveEdit(id){
       const val=document.getElementById(`edit-${id}`).value.trim();
       if(!val) return;
@@ -555,27 +680,89 @@
       const c=arr.find(x=>x.id===id);
       if(c){ c.text=val; saveProject(); renderComments(); }
     }
-    function cancelEdit(id,orig){ const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`); if(el) el.textContent=orig; }
+    
+    function cancelEdit(id,orig){ 
+      const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`); 
+      if(el) el.textContent=orig; 
+    }
+    
     function deleteComment(id){
-      if(viewerMode) return;
       if(!confirm('Delete this comment?')) return;
       comments[currentProject.id][currentVersion]=comments[currentProject.id][currentVersion].filter(c=>c.id!==id);
       saveProject(); renderComments(); renderAnnotations();
     }
 
-    // Zoom
-    function zoomIn(){ 
-      zoomLevel=Math.min(zoomLevel*1.2,5); 
-      applyZoom(); 
+    function editReply(parentId, replyId) {
+      const arr = comments[currentProject.id][currentVersion];
+      const parentComment = arr.find(c => c.id === parentId);
+      const reply = parentComment?.replies?.find(r => r.id === replyId);
+      
+      if (reply) {
+        const replyElements = document.querySelectorAll(`#replies-${parentId} .comment-item`);
+        const replyElement = Array.from(replyElements).find(el => 
+          el.querySelector('.comment-text').textContent === reply.text
+        );
+        
+        if (replyElement) {
+          const textEl = replyElement.querySelector('.comment-text');
+          const orig = reply.text;
+          textEl.innerHTML = `
+            <div class="edit-form">
+              <textarea class="edit-input" id="edit-reply-${replyId}">${escapeHtml(orig)}</textarea>
+              <div class="reply-actions">
+                <button class="btn btn-sm" onclick="saveReplyEdit('${parentId}', '${replyId}')">Save</button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelReplyEdit('${parentId}', '${replyId}', \`${escapeJs(orig)}\`)">Cancel</button>
+              </div>
+            </div>`;
+          document.getElementById(`edit-reply-${replyId}`).focus();
+        }
+      }
     }
-    function zoomOut(){ 
-      zoomLevel=Math.max(zoomLevel/1.2,0.1); 
-      applyZoom(); 
+
+    function saveReplyEdit(parentId, replyId) {
+      const newText = document.getElementById(`edit-reply-${replyId}`).value.trim();
+      if (!newText) return;
+      
+      const arr = comments[currentProject.id][currentVersion];
+      const parentComment = arr.find(c => c.id === parentId);
+      const reply = parentComment?.replies?.find(r => r.id === replyId);
+      
+      if (reply) {
+        reply.text = newText;
+        saveProject();
+        renderComments();
+      }
     }
-    function resetZoom(){ 
-      zoomLevel=1; 
-      applyZoom(); 
+
+    function cancelReplyEdit(parentId, replyId, originalText) {
+      const replyElements = document.querySelectorAll(`#replies-${parentId} .comment-item`);
+      const replyElement = Array.from(replyElements).find(el => 
+        el.querySelector(`#edit-reply-${replyId}`)
+      );
+      
+      if (replyElement) {
+        const textEl = replyElement.querySelector('.comment-text');
+        textEl.textContent = originalText;
+      }
     }
+
+    function deleteReply(parentId, replyId) {
+      if (!confirm('Delete this reply?')) return;
+      
+      const arr = comments[currentProject.id][currentVersion];
+      const parentComment = arr.find(c => c.id === parentId);
+      
+      if (parentComment && parentComment.replies) {
+        parentComment.replies = parentComment.replies.filter(r => r.id !== replyId);
+        saveProject();
+        renderComments();
+      }
+    }
+
+    // Zoom functions
+    function zoomIn(){ zoomLevel=Math.min(zoomLevel*1.2,5); applyZoom(); }
+    function zoomOut(){ zoomLevel=Math.max(zoomLevel/1.2,0.1); applyZoom(); }
+    function resetZoom(){ zoomLevel=1; applyZoom(); }
     function applyZoom(){ 
       const wrapper = document.getElementById('imageWrapper');
       wrapper.style.transform = `scale(${zoomLevel})`;
@@ -584,7 +771,6 @@
     // Persistence through Worker
     async function saveProject(){
       if(!currentProject) return;
-      // Always save changes, even in viewer mode (for comment interactions)
       await workerSaveProject(currentProject, comments[currentProject.id]).catch(e=>console.warn('Save failed', e.message));
     }
 
@@ -599,29 +785,44 @@
     function genCommentId(){ return 'comment_' + Math.random().toString(36).slice(2,11); }
     function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
     function escapeJs(s){ return String(s).replace(/[`\\$]/g,'\\$&'); }
+    
     async function copyShareLink(){
       const text=document.getElementById('shareUrl').value;
       try{
-        if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); }
-        else { const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
-        const btn=document.querySelector('.copy-btn'); const t=btn.textContent; btn.textContent='Copied!'; setTimeout(()=>btn.textContent=t,1500);
-      }catch{ alert('Copy failed. Select and copy manually.'); }
+        if(navigator.clipboard && window.isSecureContext){ 
+          await navigator.clipboard.writeText(text); 
+        } else { 
+          const ta=document.createElement('textarea'); 
+          ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; 
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); 
+          document.body.removeChild(ta); 
+        }
+        const btn=document.querySelector('.copy-btn'); 
+        const t=btn.textContent; 
+        btn.textContent='Copied!'; 
+        setTimeout(()=>btn.textContent=t,1500);
+      }catch{ 
+        alert('Copy failed. Select and copy manually.'); 
+      }
     }
+    
     function showUploadProgress(){
       const el=document.getElementById('uploadArea');
       el.innerHTML=`<div class="upload-icon">⏳</div><div class="upload-text">Uploading...</div><div class="upload-subtext">Please wait</div>`;
     }
+    
     function hideUploadProgress(){
       const el=document.getElementById('uploadArea');
       el.innerHTML=`<div class="upload-icon">📁</div><div class="upload-text">Drag & drop your image here</div><div class="upload-subtext">or click to browse files</div>`;
     }
+    
     function filterComments(filter) {
-      // Update tab styles
       document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
       event.target.classList.add('active');
-      // Filter logic would go here - for now just re-render all
       renderComments();
     }
+
+    console.log('JavaScript loaded successfully');
   </script>
 </body>
 </html>
