@@ -69,6 +69,8 @@
     .comment-item{padding:16px 0;border-bottom:1px solid var(--brand-border);cursor:pointer}
     .comment-item:hover{background:var(--brand-accent-light);margin:0 -16px;padding:16px;border-radius:8px}
     .comment-item.highlighted{background:var(--brand-accent-medium);margin:0 -16px;padding:16px;border-radius:8px}
+    .comment-item.resolved{background:rgba(128,128,128,0.3);margin:0 -16px;padding:16px;border-radius:8px}
+    .comment-item.resolved.highlighted{background:rgba(128,128,128,0.5);margin:0 -16px;padding:16px;border-radius:8px}
     .comment-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
     .comment-author{font-weight:600;font-size:14px}
     .comment-number{display:inline-block;width:24px;height:24px;background:var(--brand-accent);color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;margin-right:12px}
@@ -533,7 +535,7 @@
     
     function commentEl(c,n){
       const d=document.createElement('div'); 
-      d.className='comment-item'; 
+      d.className = `comment-item${c.resolved ? ' resolved' : ''}`; 
       d.dataset.commentId=c.id;
       d.innerHTML=`
         <div class="comment-header">
@@ -607,28 +609,13 @@
     }
     
     function toggleResolve(id){
+      console.log('toggleResolve called with id:', id);
       const arr=comments[currentProject.id][currentVersion];
       const c=arr.find(x=>x.id===id); 
       if(c){ 
         c.resolved=!c.resolved; 
-        
-        // Update the visual state immediately
-        const commentElement = document.querySelector(`[data-comment-id="${id}"]`);
-        if(commentElement) {
-          if(c.resolved) {
-            commentElement.classList.add('resolved');
-          } else {
-            commentElement.classList.remove('resolved');
-          }
-          
-          // Update the button text
-          const resolveBtn = commentElement.querySelector('.action-btn');
-          if(resolveBtn) {
-            resolveBtn.textContent = c.resolved ? 'Unresolve' : 'Resolve';
-          }
-        }
-        
         saveProject(); 
+        renderComments(); 
       }
     }
     
