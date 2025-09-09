@@ -537,8 +537,19 @@ QUICK NAV
     }
 
     function scrollCardIntoView(id){
-      const card = Array.from(commentsEl.children).find(el => el.querySelector && el.querySelector('.badge') && el.querySelector('.badge').textContent === `#${id}`);
-      if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+      // Find the comment with this ID and determine its display position
+      const v = state.versions[state.currentVersion];
+      const filter = filterSelect.value;
+      const filteredComments = v.comments
+        .filter(c => filter==='all' ? true : filter==='resolved' ? c.resolved : !c.resolved)
+        .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+      
+      const commentIndex = filteredComments.findIndex(c => c.id === id);
+      if (commentIndex >= 0) {
+        const displayNumber = commentIndex + 1;
+        const card = Array.from(commentsEl.children).find(el => el.querySelector && el.querySelector('.badge') && el.querySelector('.badge').textContent === `#${displayNumber}`);
+        if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+      }
     }
 
     // [SEC:SHARECODE]
