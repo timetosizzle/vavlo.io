@@ -391,54 +391,18 @@
         return;
       }
       
-      const img = document.getElementById('mainImage');
+      const imageWrapper = document.getElementById('imageWrapper');
+      const wrapperRect = imageWrapper.getBoundingClientRect();
       
-      // Get the image's current bounding rect (includes zoom transform)
-      const imgRect = img.getBoundingClientRect();
+      // Simple approach: calculate position relative to the wrapper
+      const x = ((e.clientX - wrapperRect.left) / wrapperRect.width) * 100;
+      const y = ((e.clientY - wrapperRect.top) / wrapperRect.height) * 100;
       
-      // Get click position relative to the image element
-      const clickX = e.clientX - imgRect.left;
-      const clickY = e.clientY - imgRect.top;
+      console.log('Simple click position:', x, y);
       
-      console.log('Image rect:', imgRect);
-      console.log('Raw click position:', clickX, clickY);
-      
-      // Calculate the actual displayed image dimensions accounting for object-fit: contain
-      const imgAspectRatio = img.naturalWidth / img.naturalHeight;
-      const containerAspectRatio = imgRect.width / imgRect.height;
-      
-      let actualImageWidth, actualImageHeight, offsetX, offsetY;
-      
-      if (imgAspectRatio > containerAspectRatio) {
-        // Image is wider - fit to width, center vertically
-        actualImageWidth = imgRect.width;
-        actualImageHeight = imgRect.width / imgAspectRatio;
-        offsetX = 0;
-        offsetY = (imgRect.height - actualImageHeight) / 2;
-      } else {
-        // Image is taller - fit to height, center horizontally  
-        actualImageWidth = imgRect.height * imgAspectRatio;
-        actualImageHeight = imgRect.height;
-        offsetX = (imgRect.width - actualImageWidth) / 2;
-        offsetY = 0;
-      }
-      
-      console.log('Actual image dimensions:', actualImageWidth, actualImageHeight);
-      console.log('Image offset:', offsetX, offsetY);
-      
-      // Calculate position relative to the actual visible image content
-      const relativeX = clickX - offsetX;
-      const relativeY = clickY - offsetY;
-      
-      // Convert to percentage of the visible image
-      const x = (relativeX / actualImageWidth) * 100;
-      const y = (relativeY / actualImageHeight) * 100;
-      
-      console.log('Final position percentage:', x, y);
-      
-      // Check if click is within the actual image bounds
+      // Basic bounds check
       if(x < 0 || x > 100 || y < 0 || y > 100) {
-        console.log('Click outside image bounds');
+        console.log('Click outside bounds');
         return;
       }
       
