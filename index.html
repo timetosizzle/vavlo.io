@@ -29,6 +29,22 @@ QUICK NAV
     body{margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial}
     a{color:inherit}
     .sr{position:absolute;left:-9999px}
+    
+    /* Global responsive typography and spacing */
+    @media (max-width: 768px) {
+      body{font-size:15px;line-height:1.4} /* Slightly larger for mobile readability */
+    }
+    
+    @media (max-width: 480px) {
+      body{font-size:14px;line-height:1.3}
+    }
+    
+    /* Touch device improvements */
+    @media (hover: none) and (pointer: coarse) {
+      .marker:hover{background:var(--pink)} /* Remove hover effects on touch devices */
+      .btn:hover{background:var(--panel-2)}
+      .comment-actions .btn:hover{background:var(--panel)}
+    }
 
     /* ===== [SEC:TOPBAR] LAYOUT: TOPBAR ===== */
     .topbar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
@@ -104,6 +120,22 @@ QUICK NAV
 
     /* Wider zoom display */
     #zoomReset{min-width:120px}
+    
+    /* DEBUG: Check if body/html has width constraints */
+    html, body {
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    /* DEBUG: Make share strip full width */
+    .share-strip {
+      width: 100vw !important;
+      max-width: none !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+    }
     
     /* FINAL FIX - Share link styling at end to override other rules */
     #shareLink{
@@ -210,7 +242,7 @@ QUICK NAV
       currentVersion: null,
       sharedMode: false,
       scale: 1,
-      minScale: 0.5,
+      minScale: 0.1, // Allow zoom down to 10%
       maxScale: 4,
       step: 0.25,
       imgNatural: { w: 0, h: 0 },
