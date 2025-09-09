@@ -1,830 +1,432 @@
+<!--
+QUICK NAV
+[LAYOUT] Topbar .............. search: [SEC:TOPBAR]
+[LAYOUT] Share Strip .......... search: [SEC:SHARE]
+[LAYOUT] Stage/Viewport ....... search: [SEC:STAGE]
+[LAYOUT] Sidebar/Comments ..... search: [SEC:SIDEBAR]
+[STATE]  App State ............ search: [SEC:STATE]
+[UI]     Zoom Controls ........ search: [SEC:ZOOM]
+[UI]     Version Dropdown ..... search: [SEC:VERSIONS]
+[ACTIONS] Comment Actions ..... search: [SEC:ACTIONS]
+[RENDER] Markers & Comments ... search: [SEC:RENDER]
+[UTIL]   Helpers .............. search: [SEC:UTIL]
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vavlo - Image Annotation Tool</title>
   <style>
-    :root {
-      --brand-background:#02042b;
-      --brand-text:#ffffff;
-      --brand-text-muted:rgba(255,255,255,0.7);
-      --brand-text-subtle:rgba(255,255,255,0.6);
-      --brand-accent:#ff037e;
-      --brand-accent-hover:#e6026f;
-      --brand-accent-light:rgba(255,3,126,0.1);
-      --brand-accent-medium:rgba(255,3,126,0.2);
-      --brand-accent-strong:rgba(255,3,126,0.3);
-      --brand-surface:rgba(255,255,255,0.05);
-      --brand-surface-hover:rgba(255,255,255,0.08);
-      --brand-border:rgba(255,255,255,0.1);
-      --brand-border-strong:rgba(255,255,255,0.2);
-      --brand-border-dashed:rgba(255,255,255,0.3);
+    :root{
+      --bg:#0f1221;
+      --panel:#171a2c;
+      --panel-2:#1f2340;
+      --line:#2b315a;
+      --text:#e7e9ff;
+      --muted:#a6abd3;
+      --pink:#ff2b85;
+      --pink-600:#e32676;
+      --gray:#6b7280; /* medium gray */
+      --danger:#ef4444;
+      --ok:#10b981;
+      --yellow:#f59e0b;
     }
-    *{margin:0;padding:0;box-sizing:border-box}
-    html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--brand-background);color:var(--brand-text);height:100%}
-    .btn{background:var(--brand-accent);color:#fff;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-size:16px;transition:.3s}
-    .btn:hover{background:var(--brand-accent-hover);transform:translateY(-1px);box-shadow:0 4px 12px var(--brand-accent-strong)}
-    .btn-sm{padding:6px 12px;font-size:12px}
-    .btn-secondary{background:var(--brand-surface-hover);color:#fff;border:1px solid var(--brand-border-strong)}
-    .hidden{display:none}
-    .upload-container{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
-    .upload-box{background:var(--brand-surface-hover);border:1px solid var(--brand-border);border-radius:12px;padding:60px 40px;box-shadow:0 4px 20px rgba(0,0,0,.4);text-align:center;max-width:500px;width:100%}
-    .logo{max-width:200px;height:auto;border-radius:8px}
-    .upload-area{border:3px dashed var(--brand-border-dashed);border-radius:8px;padding:40px 20px;margin:20px 0;transition:.3s;cursor:pointer;background:rgba(255,255,255,0.02)}
-    .upload-area:hover,.upload-area.dragover{border-color:var(--brand-accent);background:var(--brand-accent-light)}
-    .upload-icon{font-size:48px;color:var(--brand-text-subtle);margin-bottom:16px}
-    .upload-text{font-size:18px;margin-bottom:8px;font-weight:500}
-    .upload-subtext{font-size:14px;color:var(--brand-text-muted)}
-    .dashboard{display:none;height:100vh;overflow:hidden}
-    .header{background:var(--brand-surface);border-bottom:1px solid var(--brand-border);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:20px}
-    .header-left{display:flex;align-items:center;gap:12px;flex:1}
-    .back-btn{background:none;border:none;font-size:18px;cursor:pointer;padding:8px;border-radius:4px;color:#fff}
-    .back-btn:hover{background:var(--brand-surface-hover)}
-    .project-title{font-size:18px;font-weight:600}
-    .version-selector{padding:8px 12px;border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px;background:var(--brand-surface);color:#fff}
-    .zoom-inline{display:flex;gap:8px;margin-left:4px}
-    .zoom-inline .zoom-btn{background:var(--brand-surface);border:1px solid var(--brand-border-strong);color:#fff;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:14px;line-height:1}
-    .zoom-inline .zoom-btn:hover{background:var(--brand-accent-light)}
-    .header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-    .share-link{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--brand-surface);border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px}
-    .share-link input{width:340px;background:transparent;color:#fff;border:none;outline:none}
-    .copy-btn{background:var(--brand-accent);color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px}
-    .main-content{display:flex;height:calc(100vh - 73px)}
-    .image-container{flex:1;position:relative;overflow:hidden;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
-    .image-wrapper{position:relative;max-width:100%;max-height:100%;cursor:crosshair;transform-origin:center center}
-    .main-image{max-width:100%;max-height:100%;object-fit:contain;user-select:none;transition:transform .2s ease}
-    .annotation-marker{position:absolute;width:12px;height:12px;background:var(--brand-accent);border:2px solid #fff;border-radius:50%;cursor:pointer;transform:translate(-50%,-50%);z-index:10;box-shadow:0 2px 8px var(--brand-accent-strong);transition:.2s}
-    .annotation-marker:hover{transform:translate(-50%,-50%) scale(1.2);background:var(--brand-accent-hover)}
-    .annotation-marker.active{background:#fff;border-color:var(--brand-accent);transform:translate(-50%,-50%) scale(1.3)}
-    .annotation-marker.pending{opacity:0.7;animation:pulse 1.5s infinite}
-    .sidebar{width:400px;background:var(--brand-surface);border-left:1px solid var(--brand-border);display:flex;flex-direction:column}
-    .sidebar-header{padding:20px 24px;border-bottom:1px solid var(--brand-border)}
-    .sidebar-title{font-size:18px;font-weight:600;margin-bottom:16px}
-    .comment-tabs{display:flex;gap:8px}
-    .tab{padding:8px 16px;border:none;background:none;cursor:pointer;border-radius:6px;font-size:14px;color:var(--brand-text-muted)}
-    .tab.active{background:var(--brand-accent);color:#fff}
-    .tab:hover:not(.active){background:var(--brand-accent-light);color:#fff}
-    .comments-container{flex:1;overflow-y:auto;padding:0 24px 24px}
-    .comment-item{padding:16px 0;border-bottom:1px solid var(--brand-border);cursor:pointer}
-    .comment-item:hover{background:var(--brand-accent-light);margin:0 -16px;padding:16px;border-radius:8px}
-    .comment-item.highlighted{background:var(--brand-accent-medium);margin:0 -16px;padding:16px;border-radius:8px}
-    .comment-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .comment-author{font-weight:600;font-size:14px}
-    .comment-number{display:inline-block;width:24px;height:24px;background:var(--brand-accent);color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;margin-right:12px}
-    .comment-time{font-size:12px;color:var(--brand-text-subtle)}
-    .comment-text{font-size:14px;line-height:1.4;margin-bottom:8px}
-    .comment-actions{display:flex;gap:8px;font-size:12px}
-    .action-btn{background:none;border:none;color:#fff;cursor:pointer;padding:0}
-    .action-btn:hover{text-decoration:underline}
-    .reply-form,.edit-form{margin-top:12px;padding:12px;background:var(--brand-surface);border-radius:6px;border:1px solid var(--brand-border)}
-    .reply-input,.edit-input{width:100%;padding:8px;border:1px solid var(--brand-border-strong);border-radius:4px;font-size:14px;resize:vertical;min-height:60px;background:var(--brand-surface);color:#fff}
-    .new-comment-form{padding:24px;border-top:1px solid var(--brand-border);background:var(--brand-surface)}
-    .form-group{margin-bottom:16px}
-    .form-label{display:block;margin-bottom:6px;font-weight:600;font-size:14px}
-    .form-input{width:100%;padding:10px;border:1px solid var(--brand-border-strong);border-radius:6px;font-size:14px;background:var(--brand-surface);color:#fff}
-    .upload-new-version{padding:10px 12px;border:2px dashed var(--brand-border-dashed);border-radius:8px;text-align:center;cursor:pointer;color:#fff}
-    .upload-new-version:hover{border-color:var(--brand-accent);background:var(--brand-accent-light)}
-    .shared-mode-indicator{font-size:12px;color:var(--brand-text-subtle);background:var(--brand-accent-light);padding:6px 12px;border-radius:6px}
-    @keyframes pulse {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
     }
+    a{color:inherit}
+
+    /* Top bar */
+    .topbar{
+      display:flex; align-items:center; gap:16px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line);
+      position:sticky; top:0; z-index:50;
+    }
+    .brand{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px}
+    .brand img{height:22px}
+    .spacer{flex:1}
+    .versions{display:flex; align-items:center; gap:8px}
+    select, .btn{ appearance:none; border:1px solid var(--line); background:var(--panel-2); color:var(--text); border-radius:8px; padding:8px 10px; cursor:pointer }
+    select:focus, .btn:focus{ outline:2px solid var(--pink); outline-offset:2px }
+
+    .zoom-group{display:flex; align-items:center; gap:8px}
+    .icon-btn{width:34px; height:34px; display:inline-grid; place-items:center; border-radius:8px}
+
+    /* Share strip */
+    .share-strip{display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--panel-2); border-bottom:1px solid var(--line)}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line); border-radius:999px; color:var(--muted)}
+    .share-strip .btn{background:transparent}
+    .btn.primary{background:var(--pink); border-color:transparent}
+
+    /* Layout */
+    .wrap{display:grid; grid-template-columns: 1fr 360px; height:calc(100% - 94px)}
+    .canvas-area{position:relative; overflow:auto; background:radial-gradient(1200px 1200px at 50% -10%, #1a1f3e, #0f1221 60%)}
+    .sidebar{border-left:1px solid var(--line); background:var(--panel); overflow:auto}
+
+    /* Drop zone */
+    .dropzone{border:2px dashed var(--line); border-radius:16px; padding:24px; margin:16px; text-align:center; background:rgba(255,255,255,0.02)}
+    .dropzone .logo{display:block; margin:0 auto 12px auto; height:42px}
+    .dropzone h3{margin:6px 0 4px 0}
+    .muted{color:var(--muted)}
+
+    /* Image stage */
+    .stage{position:relative; margin:16px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#0c0f22}
+    .image-viewport{ position:relative; width:100%; height:72vh; overflow:auto; background:#0c0f22 }
+    .image-inner{ position:relative; transform-origin: top left; }
+    .image-inner img{ display:block; max-width:none; /* we control size via scale */ }
+
+    /* Markers */
+    .marker{ position:absolute; width:22px; height:22px; border-radius:999px; display:grid; place-items:center; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.35); transform: translate(-50%, -50%); }
+    .marker.unresolved{ background:var(--pink) }
+    .marker.resolved{ background:var(--gray) }
+
+    /* Sidebar comments */
+    .side-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--line) }
+    .comments{ padding:8px 10px }
+    .comment{ border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; background:var(--panel-2)}
+    .comment .row{ display:flex; align-items:center; gap:8px; margin-bottom:6px }
+    .badge{ background:var(--pink); color:#fff; font-weight:800; padding:2px 8px; border-radius:999px }
+    .badge.resolved{ background:var(--gray) }
+    .comment .meta{ color:var(--muted); font-size:12px }
+    .comment .text{ margin:6px 0 10px 0 }
+    .comment-actions{ display:flex; flex-wrap:wrap; gap:6px }
+    .comment-actions .btn{ color:#fff; border:none }
+    .btn.resolve.unresolved{ background:var(--pink) }
+    .btn.resolve.resolved{ background:var(--gray) }
+    .btn.reply{ background:#3b82f6 }
+    .btn.edit{ background:#8b5cf6 }
+    .btn.delete{ background:var(--danger) }
+
+    /* Small helpers */
+    .sr{position:absolute; left:-9999px}
   </style>
 </head>
 <body>
-  <div id="uploadPage" class="upload-container">
-    <div class="upload-box">
-      <img src="https://raw.githubusercontent.com/timetosizzle/vavlo.io/a8b3a7971d3354aad74cb98387ed809bbc397271/Vavlo%20-%20logo-%20white%401000x.png" alt="Vavlo Logo" class="logo"/>
-      <div class="upload-area" id="uploadArea">
-        <div class="upload-icon">📁</div>
-        <div class="upload-text">Drag & drop your image here</div>
-        <div class="upload-subtext">or click to browse files</div>
-      </div>
-      <input type="file" id="fileInput" accept="image/*" class="hidden"/>
-      <button class="btn" onclick="document.getElementById('fileInput').click()">Choose File</button>
+  <!-- Top bar with version select and zoom controls to the right of it -->
+  <!-- [SEC:TOPBAR] -->
+  <div class="topbar">
+    <div class="brand">
+      <img src="Vavlo - logo- white@1000x.png" alt="Vavlo" />
+      <span>Vavlo</span>
     </div>
+    <div class="versions">
+      <label for="version" class="sr">Version</label>
+      <select id="version" title="Version" data-testid="version-select"></select>
+    </div>
+    <div class="zoom-group" style="margin-left:6px">
+      <button class="btn icon-btn" id="zoomOut" data-testid="btn-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+      <button class="btn icon-btn" id="zoomReset" data-testid="btn-zoom-reset" title="Reset zoom" aria-label="Reset zoom">100%</button>
+      <button class="btn icon-btn" id="zoomIn" data-testid="btn-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn">Share</button>
   </div>
 
-  <div id="dashboard" class="dashboard">
-    <header class="header">
-      <div class="header-left">
-        <button class="back-btn" onclick="goBack()">←</button>
-        <div class="project-title" id="projectTitle">Untitled Project</div>
-        <select class="version-selector" id="versionSelector"></select>
-        <div class="zoom-inline" role="group" aria-label="Zoom controls">
-          <button class="zoom-btn" title="Zoom in" onclick="zoomIn()">＋</button>
-          <button class="zoom-btn" title="Reset zoom" onclick="resetZoom()">⤾</button>
-          <button class="zoom-btn" title="Zoom out" onclick="zoomOut()">－</button>
-        </div>
-      </div>
-      <div class="header-right">
-        <div class="share-link">
-          <span>Share:</span>
-          <input type="text" id="shareUrl" readonly/>
-          <button class="copy-btn" onclick="copyShareLink()">Copy</button>
-        </div>
-        <div id="expiresBadge" class="shared-mode-indicator"></div>
-        <div class="upload-new-version" id="uploadVersionBtn">+ Upload New Version</div>
-        <input type="file" id="newVersionInput" accept="image/*" class="hidden"/>
-      </div>
-    </header>
+  <!-- Share details always visible to any viewer -->
+  <!-- [SEC:SHARE] -->
+  <div class="share-strip">
+    <span class="pill">Expires: <strong id="expiresText">Oct 31, 2025</strong></span>
+    <button class="btn">Copy Share Link</button>
+    <button class="btn primary" id="uploadNewVersion" data-testid="btn-upload-version">Upload New Version</button>
+  </div>
 
-    <div class="main-content">
-      <div class="image-container">
-        <div class="image-wrapper" id="imageWrapper">
-          <img id="mainImage" class="main-image" alt="Main Image"/>
-        </div>
+  <div class="wrap">
+    <main class="canvas-area">
+      <div class="dropzone" id="dropzone">
+        <img class="logo" src="Vavlo - logo- white@1000x.png" alt="Vavlo" />
+        <h3>Drag and drop an image</h3>
+        <div class="muted">or click to choose a file</div>
+        <input id="fileInput" type="file" accept="image/*" hidden />
       </div>
 
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-title">Comments</div>
-          <div class="comment-tabs">
-            <button class="tab active" onclick="filterComments('all')">All</button>
-            <button class="tab" onclick="filterComments('unresolved')">Unresolved</button>
-            <button class="tab" onclick="filterComments('resolved')">Resolved</button>
+      <!-- [SEC:STAGE] -->
+      <section class="stage" id="stage" hidden>
+        <div class="image-viewport" id="viewport">
+          <div class="image-inner" id="imageInner">
+            <img id="img" alt="Uploaded" />
+            <!-- markers get injected here -->
           </div>
         </div>
-        <div class="comments-container" id="commentsContainer"></div>
-        <div class="new-comment-form" id="newCommentForm" style="display:none;">
-          <div class="form-group">
-            <label class="form-label">Your Name</label>
-            <input type="text" class="form-input" id="authorName" placeholder="Enter your name"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Comment</label>
-            <textarea class="form-input" id="commentText" placeholder="Add your comment..."></textarea>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-sm" onclick="submitComment()">Add Comment</button>
-            <button class="btn btn-sm btn-secondary" onclick="cancelComment()">Cancel</button>
-          </div>
-        </div>
+      </section>
+    </main>
+
+    <!-- [SEC:SIDEBAR] -->
+    <aside class="sidebar">
+      <div class="side-head">
+        <strong>Comments</strong>
+        <button class="btn" id="addDummy">Add sample</button>
       </div>
-    </div>
+      <div id="comments" class="comments"></div>
+    </aside>
   </div>
 
   <script>
-    console.log('JavaScript starting...');
-    
-    // Worker base URL
-    const WORKER_BASE = "https://vavlo-worker.bear-8c2.workers.dev";
+    /* EVENT MAP
+    click #zoomIn ........................ onZoomIn
+    click #zoomOut ....................... onZoomOut
+    click #zoomReset ..................... fitToViewport
+    click .image-inner ................... addComment at click coords
+    click [data-action=toggle-resolve] ... onToggleResolve
+    click [data-action=delete] ........... onDeleteComment
+    input .text[data-id] ................. syncCommentText
+    */
 
-    // State
-    let currentProject = null;
-    let currentVersion = 1;
-    let comments = {};
-    let zoomLevel = 1;
-    let isAddingComment = false;
-    let pendingCommentPosition = null;
-    let viewerMode = false;
+    // [SEC:VERSIONS]
 
-    const TTL_DAYS = 90;
+    /* Version dropdown management */
+    const versionSelect = document.getElementById('version');
+    let versions = [];
 
-    // Initialize when DOM is ready
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOM Content Loaded');
-      initializeApp();
-    });
-
-    // Backup initialization
-    window.addEventListener('load', function() {
-      console.log('Window Load Event');
-      if (!currentProject) {
-        initializeApp();
-      }
-    });
-
-    function initializeApp() {
-      console.log('Initializing app...');
-      setupListeners();
-      loadFromUrl();
-    }
-
-    function setupListeners(){
-      console.log('Setting up event listeners...');
-      const fileInput = document.getElementById('fileInput');
-      const uploadArea = document.getElementById('uploadArea');
-      const newVersionInput = document.getElementById('newVersionInput');
-      const uploadVersionBtn = document.getElementById('uploadVersionBtn');
-
-      fileInput.addEventListener('change', e => { const f = e.target.files[0]; if (f) createNewProject(f); });
-      newVersionInput.addEventListener('change', e => { const f = e.target.files[0]; if (f && currentProject && !viewerMode) addNewVersion(f); });
-
-      uploadArea.addEventListener('click', () => fileInput.click());
-      uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
-      uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
-      uploadArea.addEventListener('drop', e => {
-        e.preventDefault(); uploadArea.classList.remove('dragover');
-        const f = e.dataTransfer.files[0];
-        if (f && f.type.startsWith('image/')) createNewProject(f);
+    function setVersions(list){
+      const uniq = Array.from(new Set(list));
+      uniq.sort((a,b)=> (parseInt(b.replace(/\D/g,''))||0) - (parseInt(a.replace(/\D/g,''))||0));
+      versions = uniq;
+      versionSelect.innerHTML = '';
+      uniq.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        versionSelect.appendChild(opt);
       });
-
-      document.getElementById('versionSelector').addEventListener('change', handleVersionChange);
-      uploadVersionBtn.addEventListener('click', () => {
-        if (!viewerMode) {
-          document.getElementById('newVersionInput').click();
-        }
-      });
+      if (versionSelect.options.length) versionSelect.selectedIndex = 0;
     }
 
-    // Load via shared URL
-    async function loadFromUrl(){
-      console.log('loadFromUrl called');
-      const p = new URLSearchParams(location.search);
-      const shared = p.get('shared');
-      console.log('Shared parameter:', shared);
-      
-      if(shared){
-        console.log('Loading shared project...');
-        viewerMode = true;
-        try{
-          console.log('Fetching shared data from:', shared);
-          const res = await fetch(shared);
-          if(!res.ok) throw new Error('Unable to load shared project');
-          const data = await res.json();
-          console.log('Shared data loaded:', data);
-          
-          currentProject = data.project;
-          comments[currentProject.id] = data.comments || {};
-          currentVersion = currentProject.versions.length;
-          
-          console.log('About to show dashboard...');
-          showDashboard();
-          
-        }catch(error){
-          console.error('Error loading shared project:', error);
-          alert('This shared link may have expired or is invalid.');
-        }
-      } else {
-        console.log('No shared parameter found');
-      }
-    }
+    // Initialize with only newest once
+    setVersions(['v1']);
 
-    // Worker API helpers
-    async function workerUpload(file, key){
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('key', key);
-      const res = await fetch(`${WORKER_BASE}/upload`, { method:'POST', body: fd });
-      if(!res.ok) throw new Error(await res.text());
-      return res.json();
-    }
-    async function workerSaveProject(project, commentsByVersion){
-      const res = await fetch(`${WORKER_BASE}/save-project`,{
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ project, comments: commentsByVersion })
-      });
-      if(!res.ok) throw new Error(await res.text());
-      return res.json();
-    }
-
-    // Create project
-    async function createNewProject(file){
-      try{
-        if(!WORKER_BASE){ alert('Set WORKER_BASE to your Worker URL first.'); return; }
-        showUploadProgress();
-        const projectId = generateProjectId();
-        const sanitized = file.name.replace(/[^\w\s.-]/g,'').replace(/\s+/g,'_');
-        const key = `${projectId}_v1_${sanitized}`;
-        const { imageUrl } = await workerUpload(file, key);
-
-        currentProject = {
-          id: projectId,
-          name: file.name.replace(/\.[^/.]+$/, ''),
-          versions: [{ id:1, url:imageUrl, uploadDate:new Date(), filename:file.name }],
-          sharedJsonUrl: null,
-          expiresAt: getExpiryDate()
-        };
-        currentVersion = 1;
-        comments[projectId] = {};
-        const { sharedJsonUrl } = await workerSaveProject(currentProject, comments[projectId]);
-        currentProject.sharedJsonUrl = sharedJsonUrl;
-        hideUploadProgress();
-        showDashboard();
-      }catch(err){
-        hideUploadProgress();
-        alert('Upload failed: ' + err.message);
-      }
-    }
-
-    // Add version
-    async function addNewVersion(file){
-      if (viewerMode) return;
-      try{
-        showUploadProgress();
-        const newVersionId = currentProject.versions.length + 1;
-        const sanitized = file.name.replace(/[^\w\s.-]/g,'').replace(/\s+/g,'_');
-        const key = `${currentProject.id}_v${newVersionId}_${sanitized}`;
-        const { imageUrl } = await workerUpload(file, key);
-
-        currentProject.versions.push({ id:newVersionId, url:imageUrl, uploadDate:new Date(), filename:file.name });
-        currentVersion = newVersionId;
-        await workerSaveProject(currentProject, comments[currentProject.id]);
-        hideUploadProgress();
-        updateVersionSelector();
-        loadVersion(newVersionId);
-      }catch(err){
-        hideUploadProgress();
-        alert('Upload failed: ' + err.message);
-      }
-    }
-
-    function showDashboard(){
-      console.log('Showing dashboard...');
-      document.getElementById('uploadPage').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      document.getElementById('projectTitle').textContent = currentProject.name;
-      updateShareUrlBox();
-      updateVersionSelector();
-      loadVersion(currentVersion);
-      renderComments();
-      updateExpiresBadge();
-
-      const newForm = document.getElementById('newCommentForm');
-      newForm.style.display = 'none';
-      
-      const uploadBtn = document.getElementById('uploadVersionBtn');
-      if(viewerMode){ 
-        uploadBtn.style.opacity = '0.5';
-        uploadBtn.style.cursor = 'not-allowed';
-        uploadBtn.title = 'Upload disabled in shared view';
-      } else { 
-        uploadBtn.style.opacity = '1';
-        uploadBtn.style.cursor = 'pointer';
-        uploadBtn.title = '';
-      }
-      
-      // Setup image click handler
-      setTimeout(() => {
-        setupImageClickHandler();
-      }, 100);
-    }
-
-    function setupImageClickHandler() {
-      console.log('Setting up image click handler...');
-      const imageWrapper = document.getElementById('imageWrapper');
-      const img = document.getElementById('mainImage');
-      
-      if (imageWrapper && img) {
-        // Clear existing handlers
-        imageWrapper.onclick = null;
-        img.onclick = null;
-        
-        // Add click handler to image
-        img.addEventListener('click', function(e) {
-          console.log('Image clicked!');
-          e.stopPropagation();
-          handleImageClick(e);
+    document.addEventListener('DOMContentLoaded', () => {
+      const uploadBtn = document.getElementById('uploadNewVersion');
+      if (uploadBtn){
+        uploadBtn.addEventListener('click', () => {
+          const currentMax = versions.reduce((m,v)=> Math.max(m, parseInt(v.replace(/\D/g,''))||0), 0);
+          const next = `v${currentMax + 1}`;
+          setVersions([next, ...versions]);
         });
-        
-        console.log('Image click handler setup complete');
       }
-    }
+    });
+    /**
+     * Simple image annotation scaffold
+     * - Markers live inside .image-inner so they scale with the image
+     * - Positions are saved in image-native percentages so zoom does not drift
+     */
 
-    function handleImageClick(e){
-      console.log('handleImageClick called');
-      if(isAddingComment) {
-        console.log('Already adding comment, returning');
-        return;
-      }
-      
-      const imageWrapper = document.getElementById('imageWrapper');
-      const wrapperRect = imageWrapper.getBoundingClientRect();
-      
-      // Simple approach: calculate position relative to the wrapper
-      const x = ((e.clientX - wrapperRect.left) / wrapperRect.width) * 100;
-      const y = ((e.clientY - wrapperRect.top) / wrapperRect.height) * 100;
-      
-      console.log('Simple click position:', x, y);
-      
-      // Basic bounds check
-      if(x < 0 || x > 100 || y < 0 || y > 100) {
-        console.log('Click outside bounds');
-        return;
-      }
-      
-      console.log('Starting comment creation');
-      isAddingComment = true; 
-      pendingCommentPosition = {x, y};
-      
-      showPendingMarker(x, y);
-      
-      const commentForm = document.getElementById('newCommentForm');
-      commentForm.style.display = 'block';
-      document.getElementById('authorName').focus();
-      console.log('Comment form displayed');
-    }
-    
-    function showPendingMarker(x, y) {
-      console.log('showPendingMarker called with:', x, y);
-      
-      const existingPending = document.querySelector('.annotation-marker.pending');
-      if (existingPending) {
-        console.log('Removing existing pending marker');
-        existingPending.remove();
-      }
-      
-      const marker = document.createElement('div');
-      marker.className = 'annotation-marker pending';
-      marker.style.position = 'absolute';
-      marker.style.left = x + '%';
-      marker.style.top = y + '%';
-      marker.style.width = '12px';
-      marker.style.height = '12px';
-      marker.style.background = 'var(--brand-accent)';
-      marker.style.border = '2px solid #fff';
-      marker.style.borderRadius = '50%';
-      marker.style.transform = 'translate(-50%, -50%)';
-      marker.style.zIndex = '10';
-      marker.style.boxShadow = '0 2px 8px var(--brand-accent-strong)';
-      marker.style.opacity = '0.7';
-      marker.style.animation = 'pulse 1.5s infinite';
-      marker.title = 'New annotation...';
-      
-      const imageWrapper = document.getElementById('imageWrapper');
-      if (imageWrapper) {
-        imageWrapper.appendChild(marker);
-        console.log('Pending marker added to imageWrapper');
-      } else {
-        console.error('imageWrapper not found!');
-      }
-    }
+    // [SEC:STATE]
+/** @typedef {{ id:number, xPct:number, yPct:number, text:string, resolved:boolean }} CommentItem */
+/** @type {{ scale:number, minScale:number, maxScale:number, step:number, nextId:number, imgNatural:{w:number,h:number}, comments:CommentItem[] }} */
+const state = {
+      scale: 1,
+      minScale: 0.5,
+      maxScale: 4,
+      step: 0.25,
+      nextId: 1,
+      imgNatural: { w: 0, h: 0 },
+      comments: [] // {id, xPct, yPct, text, resolved}
+    };
 
-    function updateShareUrlBox(){
-      const input = document.getElementById('shareUrl');
-      input.value = currentProject?.sharedJsonUrl ? `${location.origin}${location.pathname}?shared=${encodeURIComponent(currentProject.sharedJsonUrl)}` : '';
-    }
+    // Elements
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const stage = document.getElementById('stage');
+    const img = document.getElementById('img');
+    const imageInner = document.getElementById('imageInner');
+    const viewport = document.getElementById('viewport');
+    const commentsEl = document.getElementById('comments');
 
-    function getExpiryDate(days = TTL_DAYS){ const d = new Date(); d.setDate(d.getDate()+days); return d; }
-    function daysLeft(expiresAt){ const diff=new Date(expiresAt)-new Date(); return Math.max(0, Math.ceil(diff/86400000)); }
-    function updateExpiresBadge(){
-      const el = document.getElementById('expiresBadge');
-      const d = daysLeft(currentProject?.expiresAt);
-      el.textContent = isNaN(d) ? '' : `Expires in ${d} day${d===1?'':'s'}`;
-    }
-    function updateVersionSelector(){
-      const s = document.getElementById('versionSelector'); s.innerHTML='';
-      currentProject.versions.forEach(v=>{
-        const o=document.createElement('option'); o.value=v.id; o.textContent=`v${v.id}`; s.appendChild(o);
-      });
-      s.value = currentVersion;
-    }
-    function loadVersion(id){
-      const v=currentProject.versions.find(x=>x.id===Number(id)); if(!v) return;
-      const img=document.getElementById('mainImage'); 
-      img.src=v.url; 
-      img.onload=()=>{ 
-        resetZoom(); 
-        setTimeout(() => {
-          renderAnnotations(); 
-          applyZoom();
-          setupImageClickHandler(); // Re-setup after image loads
-        }, 100);
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+    const zoomResetBtn = document.getElementById('zoomReset');
+
+    // Dropzone wiring
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--pink)'; });
+    dropzone.addEventListener('dragleave', e => { dropzone.style.borderColor = 'var(--line)'; });
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--line)';
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) loadImageFile(file);
+    });
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) loadImageFile(file);
+    });
+
+    function loadImageFile(file){
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        state.imgNatural.w = img.naturalWidth;
+        state.imgNatural.h = img.naturalHeight;
+        // Set the inner box to natural size so transform scale is accurate
+        imageInner.style.width = state.imgNatural.w + 'px';
+        imageInner.style.height = state.imgNatural.h + 'px';
+        stage.hidden = false;
+        dropzone.hidden = true;
+        fitToViewport();
       };
-    }
-    function handleVersionChange(e){ currentVersion=parseInt(e.target.value,10); loadVersion(currentVersion); renderComments(); }
-
-    function submitComment(){
-      console.log('submitComment called');
-      const author=document.getElementById('authorName').value.trim();
-      const text=document.getElementById('commentText').value.trim();
-      if(!author||!text||!pendingCommentPosition) return;
-      
-      const pendingMarker = document.querySelector('.annotation-marker.pending');
-      if (pendingMarker) pendingMarker.remove();
-      
-      const c={ id:genCommentId(), author, text, position:pendingCommentPosition, timestamp:new Date(), version:currentVersion, resolved:false, replies:[] };
-      if(!comments[currentProject.id]) comments[currentProject.id]={};
-      if(!comments[currentProject.id][currentVersion]) comments[currentProject.id][currentVersion]=[];
-      comments[currentProject.id][currentVersion].push(c);
-      document.getElementById('newCommentForm').style.display='none';
-      document.getElementById('authorName').value=''; document.getElementById('commentText').value='';
-      isAddingComment=false; pendingCommentPosition=null;
-      saveProject();
-      renderComments(); renderAnnotations();
-    }
-    
-    function cancelComment(){ 
-      console.log('cancelComment called');
-      const pendingMarker = document.querySelector('.annotation-marker.pending');
-      if (pendingMarker) pendingMarker.remove();
-      
-      isAddingComment=false; 
-      pendingCommentPosition=null; 
-      document.getElementById('newCommentForm').style.display='none';
-      document.getElementById('authorName').value=''; 
-      document.getElementById('commentText').value='';
-    }
-    
-    function renderComments(){
-      console.log('renderComments called');
-      const container=document.getElementById('commentsContainer');
-      const arr=comments[currentProject.id]?.[currentVersion]||[];
-      if(!arr.length){ 
-        container.innerHTML='<div class="upload-subtext" style="padding:24px;">No comments yet. Click the image to add one.</div>'; 
-        return; 
-      }
-      container.innerHTML=''; 
-      arr.forEach((c,i)=>container.appendChild(commentEl(c,i+1)));
-    }
-    
-    function commentEl(c,n){
-      const d=document.createElement('div'); 
-      d.className='comment-item'; 
-      d.dataset.commentId=c.id;
-      d.innerHTML=`
-        <div class="comment-header">
-          <span class="comment-author"><span class="comment-number">#${n}</span> ${escapeHtml(c.author)}</span>
-          <span class="comment-time">${new Date(c.timestamp).toLocaleString()}</span>
-        </div>
-        <div class="comment-text">${escapeHtml(c.text)}</div>
-        <div class="comment-actions" style="display: flex !important; gap: 8px; font-size: 12px; margin-top: 8px;">
-          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="toggleResolve('${c.id}')">
-            ${c.resolved?'Unresolve':'Resolve'}
-          </button>
-          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="showReplyForm('${c.id}')">
-            Reply
-          </button>
-          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="editComment('${c.id}')">
-            Edit
-          </button>
-          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="deleteComment('${c.id}')">
-            Delete
-          </button>
-        </div>
-        <div class="replies" id="replies-${c.id}"></div>`;
-      if(c.replies?.length){ 
-        const rc=d.querySelector(`#replies-${c.id}`); 
-        c.replies.forEach(r=>rc.appendChild(replyEl(r,c.id))); 
-      }
-      d.addEventListener('click',()=>highlightAnnotation(c.id));
-      return d;
-    }
-    
-    function replyEl(r,pid){
-      const d=document.createElement('div'); d.className='comment-item';
-      d.innerHTML=`
-        <div class="comment-header">
-          <span class="comment-author">${escapeHtml(r.author)}</span>
-          <span class="comment-time">${new Date(r.timestamp).toLocaleString()}</span>
-        </div>
-        <div class="comment-text">${escapeHtml(r.text)}</div>
-        <div class="comment-actions" style="display: flex; gap: 8px; font-size: 12px; margin-top: 8px;">
-          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="editReply('${pid}', '${r.id}')">Edit</button>
-          <button class="action-btn" style="background: none; border: none; color: #fff; cursor: pointer; padding: 0;" onclick="deleteReply('${pid}', '${r.id}')">Delete</button>
-        </div>`;
-      return d;
-    }
-    
-    function renderAnnotations(){
-      document.querySelectorAll('.annotation-marker:not(.pending)').forEach(m=>m.remove());
-      
-      const arr=comments[currentProject.id]?.[currentVersion]||[];
-      const imageWrapper = document.getElementById('imageWrapper');
-      
-      arr.forEach(c=>{
-        const m=document.createElement('div'); 
-        m.className='annotation-marker'; 
-        m.dataset.commentId=c.id;
-        m.style.left=c.position.x+'%'; 
-        m.style.top=c.position.y+'%';
-        m.title = `${c.author}: ${c.text.slice(0,50)}${c.text.length>50?'...':''}`;
-        m.addEventListener('click',e=>{e.stopPropagation(); highlightAnnotation(c.id);});
-        imageWrapper.appendChild(m);
-      });
-    }
-    
-    function highlightAnnotation(id){
-      document.querySelectorAll('.annotation-marker').forEach(m=>m.classList.remove('active'));
-      document.querySelectorAll('.comment-item').forEach(i=>i.classList.remove('highlighted'));
-      const marker=document.querySelector(`.annotation-marker[data-comment-id="${id}"]`);
-      const item=document.querySelector(`.comment-item[data-comment-id="${id}"]`);
-      if(marker) marker.classList.add('active');
-      if(item){ item.classList.add('highlighted'); item.scrollIntoView({behavior:'smooth',block:'center'}); }
-    }
-    
-    function toggleResolve(id){
-      const arr=comments[currentProject.id][currentVersion];
-      const c=arr.find(x=>x.id===id); 
-      if(c){ 
-        c.resolved=!c.resolved; 
-        
-        // Update the visual state immediately
-        const commentElement = document.querySelector(`[data-comment-id="${id}"]`);
-        if(commentElement) {
-          if(c.resolved) {
-            commentElement.classList.add('resolved');
-          } else {
-            commentElement.classList.remove('resolved');
-          }
-          
-          // Update the button text
-          const resolveBtn = commentElement.querySelector('.action-btn');
-          if(resolveBtn) {
-            resolveBtn.textContent = c.resolved ? 'Unresolve' : 'Resolve';
-          }
-        }
-        
-        saveProject(); 
-      }
-    }
-    
-    function showReplyForm(id){
-      document.querySelectorAll('.reply-form').forEach(f=>f.remove());
-      const rc=document.getElementById(`replies-${id}`);
-      const f=document.createElement('div'); f.className='reply-form';
-      f.innerHTML=`
-        <input type="text" class="reply-input" placeholder="Your name" id="reply-author-${id}">
-        <textarea class="reply-input" placeholder="Your reply..." id="reply-text-${id}"></textarea>
-        <div class="reply-actions">
-          <button class="btn btn-sm" onclick="submitReply('${id}')">Reply</button>
-          <button class="btn btn-sm btn-secondary" onclick="cancelReply('${id}')">Cancel</button>
-        </div>`;
-      rc.appendChild(f); document.getElementById(`reply-author-${id}`).focus();
-    }
-    
-    function submitReply(id){
-      const a=document.getElementById(`reply-author-${id}`).value.trim();
-      const t=document.getElementById(`reply-text-${id}`).value.trim();
-      if(!a||!t) return;
-      const arr=comments[currentProject.id][currentVersion];
-      const c=arr.find(x=>x.id===id);
-      if(c){ if(!c.replies) c.replies=[]; c.replies.push({id:genCommentId(), author:a, text:t, timestamp:new Date()}); saveProject(); renderComments(); renderAnnotations(); }
-    }
-    
-    function cancelReply(id){ const f=document.querySelector(`#replies-${id} .reply-form`); if(f) f.remove(); }
-    
-    function editComment(id){
-      const arr=comments[currentProject.id][currentVersion];
-      const c=arr.find(x=>x.id===id);
-      const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`);
-      if(c && el){
-        const orig=c.text;
-        el.innerHTML=`
-          <div class="edit-form">
-            <textarea class="edit-input" id="edit-${id}">${escapeHtml(orig)}</textarea>
-            <div class="reply-actions">
-              <button class="btn btn-sm" onclick="saveEdit('${id}')">Save</button>
-              <button class="btn btn-sm btn-secondary" onclick="cancelEdit('${id}', \`${escapeJs(orig)}\`)">Cancel</button>
-            </div>
-          </div>`;
-        document.getElementById(`edit-${id}`).focus();
-      }
-    }
-    
-    function saveEdit(id){
-      const val=document.getElementById(`edit-${id}`).value.trim();
-      if(!val) return;
-      const arr=comments[currentProject.id][currentVersion];
-      const c=arr.find(x=>x.id===id);
-      if(c){ c.text=val; saveProject(); renderComments(); }
-    }
-    
-    function cancelEdit(id,orig){ 
-      const el=document.querySelector(`[data-comment-id="${id}"] .comment-text`); 
-      if(el) el.textContent=orig; 
-    }
-    
-    function deleteComment(id){
-      if(!confirm('Delete this comment?')) return;
-      comments[currentProject.id][currentVersion]=comments[currentProject.id][currentVersion].filter(c=>c.id!==id);
-      saveProject(); renderComments(); renderAnnotations();
+      img.src = url;
     }
 
-    function editReply(parentId, replyId) {
-      const arr = comments[currentProject.id][currentVersion];
-      const parentComment = arr.find(c => c.id === parentId);
-      const reply = parentComment?.replies?.find(r => r.id === replyId);
-      
-      if (reply) {
-        const replyElements = document.querySelectorAll(`#replies-${parentId} .comment-item`);
-        const replyElement = Array.from(replyElements).find(el => 
-          el.querySelector('.comment-text').textContent === reply.text
-        );
-        
-        if (replyElement) {
-          const textEl = replyElement.querySelector('.comment-text');
-          const orig = reply.text;
-          textEl.innerHTML = `
-            <div class="edit-form">
-              <textarea class="edit-input" id="edit-reply-${replyId}">${escapeHtml(orig)}</textarea>
-              <div class="reply-actions">
-                <button class="btn btn-sm" onclick="saveReplyEdit('${parentId}', '${replyId}')">Save</button>
-                <button class="btn btn-sm btn-secondary" onclick="cancelReplyEdit('${parentId}', '${replyId}', \`${escapeJs(orig)}\`)">Cancel</button>
-              </div>
-            </div>`;
-          document.getElementById(`edit-reply-${replyId}`).focus();
-        }
-      }
+    function applyScale(){
+      imageInner.style.transform = `scale(${state.scale})`;
+      zoomResetBtn.textContent = Math.round(state.scale * 100) + '%';
     }
 
-    function saveReplyEdit(parentId, replyId) {
-      const newText = document.getElementById(`edit-reply-${replyId}`).value.trim();
-      if (!newText) return;
-      
-      const arr = comments[currentProject.id][currentVersion];
-      const parentComment = arr.find(c => c.id === parentId);
-      const reply = parentComment?.replies?.find(r => r.id === replyId);
-      
-      if (reply) {
-        reply.text = newText;
-        saveProject();
-        renderComments();
-      }
+    function fitToViewport(){
+      // Fit image to viewport width by default
+      const vw = viewport.clientWidth - 20; // small padding room
+      const vh = viewport.clientHeight - 20;
+      const sx = vw / state.imgNatural.w;
+      const sy = vh / state.imgNatural.h;
+      state.scale = Math.max( Math.min(sx, sy), 0.5 );
+      applyScale();
     }
 
-    function cancelReplyEdit(parentId, replyId, originalText) {
-      const replyElements = document.querySelectorAll(`#replies-${parentId} .comment-item`);
-      const replyElement = Array.from(replyElements).find(el => 
-        el.querySelector(`#edit-reply-${replyId}`)
-      );
-      
-      if (replyElement) {
-        const textEl = replyElement.querySelector('.comment-text');
-        textEl.textContent = originalText;
-      }
-    }
+    window.addEventListener('resize', () => {
+      if (!stage.hidden) fitToViewport();
+    });
 
-    function deleteReply(parentId, replyId) {
-      if (!confirm('Delete this reply?')) return;
-      
-      const arr = comments[currentProject.id][currentVersion];
-      const parentComment = arr.find(c => c.id === parentId);
-      
-      if (parentComment && parentComment.replies) {
-        parentComment.replies = parentComment.replies.filter(r => r.id !== replyId);
-        saveProject();
-        renderComments();
-      }
-    }
+    zoomInBtn.addEventListener('click', () => { state.scale = Math.min(state.maxScale, +(state.scale + state.step).toFixed(2)); applyScale(); });
+    zoomOutBtn.addEventListener('click', () => { state.scale = Math.max(state.minScale, +(state.scale - state.step).toFixed(2)); applyScale(); });
+    zoomResetBtn.addEventListener('click', () => { fitToViewport(); });
 
-    // Zoom functions
-    function zoomIn(){ zoomLevel=Math.min(zoomLevel*1.2,5); applyZoom(); }
-    function zoomOut(){ zoomLevel=Math.max(zoomLevel/1.2,0.1); applyZoom(); }
-    function resetZoom(){ zoomLevel=1; applyZoom(); }
-    function applyZoom(){ 
-      const wrapper = document.getElementById('imageWrapper');
-      wrapper.style.transform = `scale(${zoomLevel})`;
-    }
+    // Add marker by clicking the image
+    imageInner.addEventListener('click', (e) => {
+      // Avoid adding when clicking on a marker
+      if (e.target.classList.contains('marker')) return;
 
-    // Persistence through Worker
-    async function saveProject(){
-      if(!currentProject) return;
-      await workerSaveProject(currentProject, comments[currentProject.id]).catch(e=>console.warn('Save failed', e.message));
-    }
+      const rect = imageInner.getBoundingClientRect();
+      const xScaled = e.clientX - rect.left;
+      const yScaled = e.clientY - rect.top;
+      // Remove the scale to compute native coordinates
+      const x = xScaled / state.scale;
+      const y = yScaled / state.scale;
+      const xPct = (x / state.imgNatural.w) * 100;
+      const yPct = (y / state.imgNatural.h) * 100;
 
-    function goBack(){ 
-      document.getElementById('dashboard').style.display='none'; 
-      document.getElementById('uploadPage').style.display='flex'; 
-      viewerMode = false;
-    }
+      addComment({ xPct, yPct, text: 'New comment', resolved: false });
+    });
 
-    // Utils
-    function generateProjectId(){ return 'proj_' + Math.random().toString(36).slice(2,11); }
-    function genCommentId(){ return 'comment_' + Math.random().toString(36).slice(2,11); }
-    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-    function escapeJs(s){ return String(s).replace(/[`\\$]/g,'\\$&'); }
-    
-    async function copyShareLink(){
-      const text=document.getElementById('shareUrl').value;
-      try{
-        if(navigator.clipboard && window.isSecureContext){ 
-          await navigator.clipboard.writeText(text); 
-        } else { 
-          const ta=document.createElement('textarea'); 
-          ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; 
-          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); 
-          document.body.removeChild(ta); 
-        }
-        const btn=document.querySelector('.copy-btn'); 
-        const t=btn.textContent; 
-        btn.textContent='Copied!'; 
-        setTimeout(()=>btn.textContent=t,1500);
-      }catch{ 
-        alert('Copy failed. Select and copy manually.'); 
-      }
-    }
-    
-    function showUploadProgress(){
-      const el=document.getElementById('uploadArea');
-      el.innerHTML=`<div class="upload-icon">⏳</div><div class="upload-text">Uploading...</div><div class="upload-subtext">Please wait</div>`;
-    }
-    
-    function hideUploadProgress(){
-      const el=document.getElementById('uploadArea');
-      el.innerHTML=`<div class="upload-icon">📁</div><div class="upload-text">Drag & drop your image here</div><div class="upload-subtext">or click to browse files</div>`;
-    }
-    
-    function filterComments(filter) {
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      event.target.classList.add('active');
+    function addComment({ xPct, yPct, text, resolved }){
+      const id = state.nextId++;
+      state.comments.push({ id, xPct, yPct, text, resolved });
+      renderMarker({ id, xPct, yPct, resolved });
       renderComments();
     }
 
-    console.log('JavaScript loaded successfully');
+    function renderMarker({ id, xPct, yPct, resolved }){
+      const existing = imageInner.querySelector(`[data-id="${id}"]`);
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.className = `marker ${resolved ? 'resolved' : 'unresolved'}`;
+      el.dataset.id = String(id);
+      el.style.left = xPct + '%';
+      el.style.top = yPct + '%';
+      el.textContent = id;
+      el.setAttribute('data-testid', `marker-${id}`);
+      imageInner.appendChild(el);
+    }
+
+    function renderComments(){
+      commentsEl.innerHTML = '';
+      state.comments.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'comment';
+        card.innerHTML = `
+          <div class="row">
+            <span class="badge ${c.resolved ? 'resolved' : ''}">#${c.id}</span>
+            <span class="meta">${c.resolved ? 'Resolved' : 'Unresolved'}</span>
+          </div>
+          <div class="text" contenteditable="true" data-id="${c.id}">${c.text}</div>
+          <div class="comment-actions">
+            <button class="btn resolve ${c.resolved ? 'resolved' : 'unresolved'}" data-action="toggle-resolve" data-id="${c.id}" data-testid="btn-resolve-${c.id}">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
+            <button class="btn reply" data-action="reply" data-id="${c.id}">Reply</button>
+            <button class="btn edit" data-action="edit" data-id="${c.id}">Edit</button>
+            <button class="btn delete" data-action="delete" data-id="${c.id}">Delete</button>
+          </div>
+        `;
+        commentsEl.appendChild(card);
+      });
+    }
+
+    // Action handling with delegation
+    commentsEl.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const id = +(t.getAttribute('data-id') || 0);
+      if (!id) return;
+      const c = state.comments.find(x => x.id === id);
+      if (!c) return;
+
+      const action = t.getAttribute('data-action');
+      if (action === 'toggle-resolve'){
+        console.groupCollapsed('[RESOLVE] toggle', { id, to: !c.resolved ? 'resolved' : 'unresolved' });
+        c.resolved = !c.resolved;
+        console.groupEnd();
+        // Update marker
+        renderMarker(c);
+        // Re-render comments to refresh buttons, badge colors, and text
+        renderComments();
+        return;
+      }
+      if (action === 'delete'){
+        // Remove comment and marker
+        state.comments = state.comments.filter(x => x.id !== id);
+        const m = imageInner.querySelector(`[data-id="${id}"]`);
+        if (m) m.remove();
+        renderComments();
+        return;
+      }
+      if (action === 'edit'){
+        // Focus editable text
+        const editable = commentsEl.querySelector(`.text[data-id="${id}"]`);
+        if (editable){ editable.focus(); }
+        return;
+      }
+      if (action === 'reply'){
+        alert('Reply clicked for #' + id);
+        return;
+      }
+    });
+
+    // Keep editable text synced
+    commentsEl.addEventListener('input', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      if (t.classList.contains('text')){
+        const id = +(t.getAttribute('data-id') || 0);
+        const c = state.comments.find(x => x.id === id);
+        if (c) c.text = t.textContent || '';
+      }
+    });
+
+    // Demo seed
+    document.getElementById('addDummy').addEventListener('click', () => {
+      if (!img.src){
+        // Load a tiny placeholder canvas if no image yet
+        const ph = document.createElement('canvas');
+        ph.width = 1200; ph.height = 800;
+        const cx = ph.getContext('2d');
+        cx.fillStyle = '#0c0f22'; cx.fillRect(0,0,ph.width,ph.height);
+        cx.strokeStyle = '#1f2a5a'; cx.lineWidth = 6; cx.strokeRect(20,20,ph.width-40,ph.height-40);
+        cx.fillStyle = '#ffffff'; cx.font = '28px system-ui'; cx.fillText('Drop an image to annotate', 36, 64);
+        img.onload = () => {
+          state.imgNatural.w = img.naturalWidth;
+          state.imgNatural.h = img.naturalHeight;
+          imageInner.style.width = state.imgNatural.w + 'px';
+          imageInner.style.height = state.imgNatural.h + 'px';
+          stage.hidden = false; dropzone.hidden = true; fitToViewport();
+        }
+        img.src = ph.toDataURL();
+      }
+      // Add two sample comments
+      addComment({ xPct: 30, yPct: 30, text: 'Tighten crop on subject', resolved: false });
+      addComment({ xPct: 72, yPct: 58, text: 'Color balance a bit cool', resolved: true });
+    });
+
+    // Make sure markers stay aligned when user scrolls the viewport
+    // (they do, since they live inside the scaled element). Nothing else needed here.
   </script>
 </body>
 </html>
