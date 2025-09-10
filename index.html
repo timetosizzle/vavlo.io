@@ -7,6 +7,7 @@
   <style>
     :root{
       --bg:#0f1221; --panel:#171a2c; --panel-2:#1f2340; --line:#2b315a; --text:#e7e9ff; --muted:#a6abd3; --pink:#ff2b85; --gray:#6b7280; --danger:#ef4444; --ok:#10b981; --blue:#3b82f6; --violet:#8b5cf6; --yellow:#f59e0b;
+      --z:1; /* scale factor for constant-size markers/tooltips */
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -53,11 +54,12 @@
     .dropzone h3{margin:6px 0 4px 0}
     .muted{color:var(--muted)}
 
-    /* Stage and image viewport - no frame, full vertical scroll, no sideways scroll */
+    /* Stage and image viewport */
     .stage{position:relative;margin:0;border:none;border-radius:0;background:transparent}
     .image-viewport{
       position:relative;width:100%;height:auto;max-height:none;
-      overflow-y:auto;overflow-x:hidden;padding:0 0 40px 0
+      overflow:visible; /* let the page handle scrolling */
+      padding:0; margin:0;
     }
     .image-inner{position:relative;transform-origin:top left}
     .image-inner img{
@@ -66,13 +68,13 @@
     }
 
     /* Markers */
-    .marker{position:absolute;z-index:2;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%)}
+    .marker{position:absolute;z-index:2;width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%) scale(calc(1 / var(--z, 1))) !important}
     .marker.unresolved{background:var(--pink)}
     .marker.resolved{background:var(--gray)}
     .marker.active{outline:3px solid rgba(255,255,255,.35)}
     .marker.pending{opacity:.75;animation:pulse 1.4s ease-in-out infinite}
-    @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}}
-    .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%,-120%);white-space:nowrap}
+    @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(calc(1 / var(--z, 1)))}50%{transform:translate(-50%,-50%) scale(calc(1.15 / var(--z, 1)))}}
+    .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%,-120%) scale(calc(1 / var(--z, 1))) !important; transform-origin:bottom center; white-space:nowrap}
 
     /* Sidebar */
     .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -217,19 +219,33 @@
     // Worker base detection
     let workerBase = null;
     async function resolveWorkerBase(){
+      const DEFAULT = 'https://vavlo.io';
+
       const qp = new URLSearchParams(location.search).get('worker');
-      const stored = localStorage.getItem('vavlo.workerBase') || null;
+      // no localStorage reads/writes here
       const meta = document.querySelector('meta[name="worker-base"]')?.getAttribute('content') || null;
-      const candidates = [qp, meta, stored, `${location.origin}/api`, `${location.origin}/worker`, 'https://api.vavlo.io', 'https://vavlo-worker.your_domain_or_subdomain'].filter(Boolean);
+
+      const candidates = [
+        qp,
+        meta,
+        `${location.origin}/api`,
+        `${location.origin}/worker`,
+        'https://api.vavlo.io',
+        'https://vavlo-worker.your_domain_or_subdomain'
+      ].filter(Boolean);
+
       for (const base of candidates){
         try{
           const ctl = new AbortController();
-          const t = setTimeout(()=>ctl.abort(), 3000);
+          const t = setTimeout(()=>ctl.abort(), 2500);
           const res = await fetch(`${base}/health`, { signal: ctl.signal, cache:'no-store' });
           clearTimeout(t);
-          if (res.ok){ workerBase = base; localStorage.setItem('vavlo.workerBase', base); return base; }
-        }catch(_){}}
-      workerBase = null; return null;
+          if (res.ok){ workerBase = base; return base; }
+        }catch(_){ /* keep trying */ }
+      }
+
+      workerBase = DEFAULT; // hard fallback so links never say "null"
+      return workerBase;
     }
 
     // Elements
@@ -276,7 +292,11 @@
     // Zoom and fit
     function applyScale(){
       imageInner.style.transform = `scale(${state.scale})`;
+      imageInner.style.setProperty('--z', String(state.scale)); // keep markers/tooltips same visual size
       zoomResetBtn.textContent = Math.round(state.scale * 100) + '%';
+      if (state.imgNatural.h){
+        viewport.style.height = (state.imgNatural.h * state.scale) + 'px'; // prevent extra bottom gap
+      }
     }
     function fitToViewport(){
       if (!state.versions[state.currentVersion]) return;
@@ -648,18 +668,53 @@
     let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
     function autoSave(){ if (state.projectId) saveProject(); }
 
-    async function loadProjectFromShared(sharedUrl){
+    // Robust shared loader that tolerates shared=null/<id>
+    async function loadProjectFromShared(sharedVal){
       try{
-        const urlObj = new URL(sharedUrl);
-        if (!urlObj.pathname.endsWith('.json')){ urlObj.pathname += '.json'; }
-        const res = await fetch(urlObj.toString(), { cache:'no-store' }); if (!res.ok) throw new Error('load failed');
+        let id = null;
+        // Try URL form first
+        try{
+          const u = new URL(sharedVal);
+          if (u.hostname === 'null'){
+            const parts = u.pathname.split('/').filter(Boolean);
+            id = parts[parts.length - 1];
+          }else{
+            const m = u.pathname.match(/\/([^\/]+)(?:\.json)?$/);
+            id = m ? m[1] : null;
+          }
+        }catch{
+          // Not a URL; maybe "null/<id>" or just "<id>"
+          const cleaned = String(sharedVal).replace(/^null\//, '').replace(/^\//, '');
+          id = cleaned.split('/').pop().replace(/\.json$/, '');
+        }
+
+        if (!id) throw new Error('bad id');
+
+        const url = `${workerBase}/${id}.json`;
+        const res = await fetch(url, { cache:'no-store' });
+        if (!res.ok) throw new Error('load failed');
+
         const data = await res.json();
-        state.projectId = data.projectId; state.createdAt = data.createdAt; state.expiresAt = data.expiresAt; state.accessCount = (data.accessCount||0) + 1;
-        state.versionOrder = data.versionOrder; state.versions = data.versions; state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
-        setVersions(state.versionOrder); renderAll(); updateExpiryUI();
-        if (shareInput){ shareInput.value = location.href; }
+        state.projectId = data.projectId;
+        state.createdAt = data.createdAt;
+        state.expiresAt = data.expiresAt;
+        state.accessCount = (data.accessCount||0) + 1;
+        state.versionOrder = data.versionOrder;
+        state.versions = data.versions;
+        state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
+
+        setVersions(state.versionOrder);
+        renderAll();
+        updateExpiryUI();
+
+        if (shareInput){
+          shareInput.value = `${location.origin}${location.pathname}?shared=${encodeURIComponent(`${workerBase}/${state.projectId}`)}`;
+        }
         await saveProject();
-      }catch(err){ console.error('Load failed', err); alert('Could not load shared project.'); }
+      }catch(err){
+        console.error('Load failed', err);
+        alert('Could not load shared project.');
+      }
     }
 
     // Utils
@@ -685,7 +740,7 @@
         state.sharedMode = true;
         uploadBtn.disabled = true;
         uploadBtn.title = 'Uploads disabled for shared viewers';
-        loadProjectFromShared(shared);
+        await loadProjectFromShared(shared);
         return;
       }
       await ensureProjectIdAndLink();
