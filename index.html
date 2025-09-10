@@ -228,8 +228,7 @@
           const res = await fetch(`${base}/health`, { signal: ctl.signal, cache:'no-store' });
           clearTimeout(t);
           if (res.ok){ workerBase = base; localStorage.setItem('vavlo.workerBase', base); return base; }
-        }catch(_){}
-      }
+        }catch(_){}}
       workerBase = null; return null;
     }
 
