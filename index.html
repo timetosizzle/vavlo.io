@@ -857,7 +857,7 @@
     let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
     function autoSave(){ if (state.projectId) saveProject(); }
 
-    // Robust shared loader - improved error handling
+    // Robust shared loader - improved error handling with fallback
     async function loadProjectFromShared(sharedVal){
       try{
         console.log('Loading shared project:', sharedVal);
@@ -883,20 +883,47 @@
         console.log('Extracted ID:', id);
         if (!id) throw new Error('Could not extract project ID');
 
-        const url = `${workerBase}/${id}.json`;
-        console.log('Fetching from:', url);
-        
-        const res = await fetch(url, { cache:'no-store' });
-        console.log('Response status:', res.status);
-        
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error('Project not found. The link may be expired or invalid.');
+        // Try loading from worker first
+        let data = null;
+        try {
+          const url = `${workerBase}/${id}.json`;
+          console.log('Fetching from worker:', url);
+          
+          const res = await fetch(url, { 
+            cache:'no-store',
+            mode: 'cors'
+          });
+          console.log('Response status:', res.status);
+          
+          if (res.ok) {
+            data = await res.json();
+            console.log('✅ Loaded from worker successfully');
+          } else if (res.status === 404) {
+            console.log('❌ Project not found on worker, trying localStorage...');
+          } else {
+            console.log('❌ Worker error:', res.status, 'trying localStorage...');
           }
-          throw new Error(`Server error: ${res.status}`);
+        } catch(err) {
+          console.log('❌ Worker request failed:', err.message, 'trying localStorage...');
         }
 
-        const data = await res.json();
+        // Fallback to localStorage if worker failed
+        if (!data) {
+          try {
+            const localData = localStorage.getItem(`vavlo_project_${id}`);
+            if (localData) {
+              data = JSON.parse(localData);
+              console.log('✅ Loaded from localStorage fallback');
+            }
+          } catch(err) {
+            console.log('❌ localStorage fallback failed:', err.message);
+          }
+        }
+
+        if (!data) {
+          throw new Error('Project not found. The link may be expired, invalid, or the project was never saved successfully.');
+        }
+        
         console.log('Loaded data:', data);
         
         state.projectId = data.projectId;
