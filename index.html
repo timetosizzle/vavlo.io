@@ -14,7 +14,7 @@
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial; overflow-x:hidden}
-    a{color:inherit}
+    a{color:inherit; text-decoration:none}
     .sr{position:absolute;left:-9999px}
 
     @media (max-width: 768px){ body{font-size:15px;line-height:1.4} }
@@ -65,6 +65,7 @@
     }
     .image-viewport.panning{cursor:grab !important}
     .image-viewport.panning:active{cursor:grabbing !important}
+    .image-viewport.pan-active{cursor:grabbing !important}
     .image-inner{position:relative;transform-origin:top left}
     .image-inner img{
       position:relative;z-index:1;display:block;
@@ -135,12 +136,35 @@
 
     /* Zoom */
     #zoomReset{min-width:90px;text-align:center}
+
+    /* Pan mode indicator */
+    .pan-indicator{
+      position:fixed;
+      top:70px;
+      left:20px;
+      background:var(--pink);
+      color:#fff;
+      padding:6px 12px;
+      border-radius:6px;
+      font-size:12px;
+      font-weight:600;
+      z-index:100;
+      opacity:0;
+      transition:opacity 0.2s;
+      pointer-events:none;
+    }
+    .pan-indicator.active{opacity:1}
   </style>
 </head>
 <body>
+  <!-- Pan mode indicator -->
+  <div class="pan-indicator" id="panIndicator">Pan Mode - Drag to move image</div>
+
   <!-- TOPBAR -->
   <div class="topbar">
-    <div class="brand"><img src="Vavlo - logo- white@1000x.png" alt="Vavlo"/></div>
+    <a href="https://vavlo.io" class="brand" target="_blank" rel="noopener">
+      <img src="Vavlo - logo- white@1000x.png" alt="Vavlo"/>
+    </a>
 
     <!-- Versions -->
     <div class="versions">
@@ -254,19 +278,19 @@
       panning: false,
       panStart: { x: 0, y: 0 },
       scrollStart: { x: 0, y: 0 },
+      spacePressed: false,
     };
 
     const AUTHOR_KEY = 'vavlo.author';
     function getSavedAuthor(){ try{ return localStorage.getItem(AUTHOR_KEY) || ''; }catch{ return ''; } }
     function setSavedAuthor(v){ try{ localStorage.setItem(AUTHOR_KEY, v || ''); }catch{} }
 
-    // Worker base detection
+    // Worker base detection - improved for debugging
     let workerBase = null;
     async function resolveWorkerBase(){
-      const DEFAULT = 'https://vavlo.io';
-
+      console.log('Resolving worker base...');
+      
       const qp = new URLSearchParams(location.search).get('worker');
-      // no localStorage reads/writes here
       const meta = document.querySelector('meta[name="worker-base"]')?.getAttribute('content') || null;
 
       const candidates = [
@@ -275,20 +299,32 @@
         `${location.origin}/api`,
         `${location.origin}/worker`,
         'https://api.vavlo.io',
-        'https://vavlo-worker.your_domain_or_subdomain'
+        'https://vavlo-worker.bear-8c2.workers.dev'
       ].filter(Boolean);
+
+      console.log('Trying candidates:', candidates);
 
       for (const base of candidates){
         try{
+          console.log(`Testing: ${base}/health`);
           const ctl = new AbortController();
-          const t = setTimeout(()=>ctl.abort(), 2500);
+          const t = setTimeout(()=>ctl.abort(), 3000);
           const res = await fetch(`${base}/health`, { signal: ctl.signal, cache:'no-store' });
           clearTimeout(t);
-          if (res.ok){ workerBase = base; return base; }
-        }catch(_){ /* keep trying */ }
+          if (res.ok){ 
+            workerBase = base; 
+            console.log('✅ Worker base resolved:', base);
+            return base; 
+          }
+          console.log(`❌ ${base} failed with status:`, res.status);
+        }catch(err){ 
+          console.log(`❌ ${base} failed:`, err.message);
+        }
       }
 
-      workerBase = DEFAULT; // hard fallback so links never say "null"
+      // Fallback
+      workerBase = 'https://vavlo-worker.bear-8c2.workers.dev';
+      console.log('⚠️ Using fallback worker base:', workerBase);
       return workerBase;
     }
 
@@ -311,6 +347,7 @@
     const accessText = document.getElementById('accessText');
     const shareInput = document.getElementById('shareLink');
     const copyBtn = document.getElementById('copyShare');
+    const panIndicator = document.getElementById('panIndicator');
 
     // Versions
     function setVersions(list){
@@ -379,29 +416,50 @@
     zoomResetBtn.addEventListener('click', fitToViewport);
     window.addEventListener('resize', ()=>{ if (!stage.hidden) fitToViewport(); });
 
-    // Spacebar panning functionality
-    let spacePressed = false;
+    // Improved spacebar panning functionality for Mac compatibility
+    function updatePanMode() {
+      if (state.spacePressed && !stage.hidden) {
+        viewport.classList.add('panning');
+        panIndicator.classList.add('active');
+      } else {
+        viewport.classList.remove('panning');
+        panIndicator.classList.remove('active');
+        state.panning = false;
+        viewport.classList.remove('pan-active');
+      }
+    }
 
+    // Use both keydown and keyup for better cross-platform support
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && !e.repeat && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !e.target.contentEditable) {
-        e.preventDefault();
-        spacePressed = true;
-        if (!stage.hidden) {
-          viewport.classList.add('panning');
+      // Check for spacebar - use both 'Space' and ' ' for compatibility
+      if ((e.code === 'Space' || e.key === ' ') && !e.repeat) {
+        // Don't interfere with input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || 
+            e.target.contentEditable === 'true') {
+          return;
         }
+        
+        e.preventDefault();
+        state.spacePressed = true;
+        updatePanMode();
       }
     });
 
     document.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') {
-        spacePressed = false;
-        viewport.classList.remove('panning');
-        state.panning = false;
+      if (e.code === 'Space' || e.key === ' ') {
+        state.spacePressed = false;
+        updatePanMode();
       }
     });
 
+    // Focus management to ensure spacebar works
+    window.addEventListener('focus', () => {
+      state.spacePressed = false;
+      updatePanMode();
+    });
+
     viewport.addEventListener('mousedown', (e) => {
-      if (spacePressed && !stage.hidden) {
+      if (state.spacePressed && !stage.hidden) {
         e.preventDefault();
         state.panning = true;
         state.panStart = { x: e.clientX, y: e.clientY };
@@ -409,12 +467,12 @@
           x: viewport.parentElement.scrollLeft, 
           y: viewport.parentElement.scrollTop 
         };
-        viewport.style.cursor = 'grabbing';
+        viewport.classList.add('pan-active');
       }
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (state.panning && spacePressed) {
+      if (state.panning && state.spacePressed) {
         e.preventDefault();
         const deltaX = state.panStart.x - e.clientX;
         const deltaY = state.panStart.y - e.clientY;
@@ -427,7 +485,7 @@
     document.addEventListener('mouseup', () => {
       if (state.panning) {
         state.panning = false;
-        viewport.style.cursor = spacePressed ? 'grab' : '';
+        viewport.classList.remove('pan-active');
       }
     });
 
@@ -506,7 +564,7 @@
 
     imageInner.addEventListener('click', (e) => {
       if (e.target.classList.contains('marker')) return;
-      if (state.panning || spacePressed) return; // don't add comments while panning
+      if (state.panning || state.spacePressed) return; // don't add comments while panning
       
       const rect = imageInner.getBoundingClientRect();
       const xScaled = e.clientX - rect.left; const yScaled = e.clientY - rect.top;
@@ -781,19 +839,34 @@
           versions: state.versions,
         };
         if (!state.projectId || !workerBase) return;
-        await fetch(`${workerBase}/${state.projectId}.json`, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
-      }catch(err){ console.warn('Save failed', err); }
+        console.log('Saving to:', `${workerBase}/${state.projectId}.json`);
+        const response = await fetch(`${workerBase}/${state.projectId}.json`, { 
+          method:'PUT', 
+          headers:{'content-type':'application/json'}, 
+          body: JSON.stringify(payload) 
+        });
+        if (!response.ok) {
+          console.error('Save failed with status:', response.status);
+        } else {
+          console.log('✅ Project saved successfully');
+        }
+      }catch(err){ 
+        console.warn('Save failed', err); 
+      }
     }
     let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
     function autoSave(){ if (state.projectId) saveProject(); }
 
-    // Robust shared loader that tolerates shared=null/<id>
+    // Robust shared loader - improved error handling
     async function loadProjectFromShared(sharedVal){
       try{
+        console.log('Loading shared project:', sharedVal);
         let id = null;
+        
         // Try URL form first
         try{
           const u = new URL(sharedVal);
+          console.log('Parsed URL:', u);
           if (u.hostname === 'null'){
             const parts = u.pathname.split('/').filter(Boolean);
             id = parts[parts.length - 1];
@@ -807,32 +880,52 @@
           id = cleaned.split('/').pop().replace(/\.json$/, '');
         }
 
-        if (!id) throw new Error('bad id');
+        console.log('Extracted ID:', id);
+        if (!id) throw new Error('Could not extract project ID');
 
         const url = `${workerBase}/${id}.json`;
+        console.log('Fetching from:', url);
+        
         const res = await fetch(url, { cache:'no-store' });
-        if (!res.ok) throw new Error('load failed');
+        console.log('Response status:', res.status);
+        
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('Project not found. The link may be expired or invalid.');
+          }
+          throw new Error(`Server error: ${res.status}`);
+        }
 
         const data = await res.json();
+        console.log('Loaded data:', data);
+        
         state.projectId = data.projectId;
         state.createdAt = data.createdAt;
         state.expiresAt = data.expiresAt;
-        state.accessCount = (data.accessCount||0) + 1;
-        state.versionOrder = data.versionOrder;
-        state.versions = data.versions;
+        
+        // Increment access count and update display immediately
+        state.accessCount = (data.accessCount || 0) + 1;
+        updateExpiryUI(); // Update display immediately
+        
+        state.versionOrder = data.versionOrder || [];
+        state.versions = data.versions || {};
         state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
 
         setVersions(state.versionOrder);
-        renderAll();
-        updateExpiryUI();
+        if (state.currentVersion && state.versions[state.currentVersion]) {
+          renderAll();
+        }
 
         if (shareInput){
           shareInput.value = `${location.origin}${location.pathname}?shared=${encodeURIComponent(`${workerBase}/${state.projectId}`)}`;
         }
+        
+        // Save the incremented access count
         await saveProject();
+        
       }catch(err){
         console.error('Load failed', err);
-        alert('Could not load shared project.');
+        alert(`Could not load shared project: ${err.message}`);
       }
     }
 
@@ -862,6 +955,7 @@
         await loadProjectFromShared(shared);
         return;
       }
+      
       await ensureProjectIdAndLink();
       setVersions([]);
       updateExpiryUI();
