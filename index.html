@@ -857,73 +857,103 @@
     let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
     function autoSave(){ if (state.projectId) saveProject(); }
 
-    // Robust shared loader - simplified for clean URLs
+    // Robust shared loader with better debugging
     async function loadProjectFromShared(sharedVal){
       try{
-        console.log('Loading shared project:', sharedVal);
+        console.log('🔄 Loading shared project...');
+        console.log('- Input value:', sharedVal);
+        console.log('- Worker base:', workerBase);
+        
         let id = null;
         
         // Handle different URL formats
         if (sharedVal.includes('://')) {
+          console.log('📋 Detected old URL format, extracting ID...');
           // Old format with full URL - extract ID from the end
           try{
             const u = new URL(sharedVal);
+            console.log('- Parsed URL hostname:', u.hostname);
+            console.log('- Parsed URL pathname:', u.pathname);
             const m = u.pathname.match(/\/([^\/]+)(?:\.json)?$/);
             id = m ? m[1] : null;
-          }catch{
+            console.log('- Extracted ID from URL:', id);
+          }catch(urlErr){
+            console.log('- URL parsing failed, trying string extraction...');
             // If URL parsing fails, try to extract from the end
             id = sharedVal.split('/').pop().replace(/\.json$/, '');
+            console.log('- Extracted ID from string:', id);
           }
         } else {
+          console.log('📋 Detected clean format (just project ID)');
           // New clean format - shared parameter is just the project ID
           id = sharedVal.trim();
         }
 
-        console.log('Extracted ID:', id);
-        if (!id || id.length < 10) throw new Error('Invalid project ID format');
+        console.log('✅ Final extracted ID:', id);
+        if (!id || id.length < 10) {
+          throw new Error(`Invalid project ID format: "${id}" (length: ${id ? id.length : 0})`);
+        }
 
         // Try loading from worker first
         let data = null;
         try {
           const url = `${workerBase}/${id}.json`;
-          console.log('Fetching from worker:', url);
+          console.log('🌐 Attempting to fetch from worker:', url);
           
           const res = await fetch(url, { 
-            cache:'no-store',
+            cache: 'no-store',
             mode: 'cors'
           });
-          console.log('Response status:', res.status);
+          console.log('📡 Worker response status:', res.status);
+          console.log('📡 Worker response headers:', [...res.headers.entries()]);
           
           if (res.ok) {
             data = await res.json();
-            console.log('✅ Loaded from worker successfully');
-          } else if (res.status === 404) {
-            console.log('❌ Project not found on worker, trying localStorage...');
+            console.log('✅ Successfully loaded from worker');
+            console.log('- Data keys:', Object.keys(data));
+            console.log('- Versions:', Object.keys(data.versions || {}));
           } else {
-            console.log('❌ Worker error:', res.status, 'trying localStorage...');
+            const responseText = await res.text().catch(() => 'Unable to read response');
+            console.log('❌ Worker failed:', res.status, res.statusText);
+            console.log('❌ Response body:', responseText);
+            
+            if (res.status === 404) {
+              console.log('🔍 404 - Project not found on worker, trying localStorage...');
+            } else {
+              console.log('🔍 Worker error, trying localStorage...');
+            }
           }
-        } catch(err) {
-          console.log('❌ Worker request failed:', err.message, 'trying localStorage...');
+        } catch(fetchErr) {
+          console.log('❌ Worker request completely failed:', fetchErr.message);
+          console.log('🔍 Trying localStorage fallback...');
         }
 
         // Fallback to localStorage if worker failed
         if (!data) {
           try {
-            const localData = localStorage.getItem(`vavlo_project_${id}`);
+            const localKey = `vavlo_project_${id}`;
+            console.log('💾 Checking localStorage for key:', localKey);
+            const localData = localStorage.getItem(localKey);
             if (localData) {
               data = JSON.parse(localData);
-              console.log('✅ Loaded from localStorage fallback');
+              console.log('✅ Successfully loaded from localStorage fallback');
+              console.log('- Data keys:', Object.keys(data));
+            } else {
+              console.log('❌ No data found in localStorage either');
             }
-          } catch(err) {
-            console.log('❌ localStorage fallback failed:', err.message);
+          } catch(localErr) {
+            console.log('❌ localStorage fallback failed:', localErr.message);
           }
         }
 
         if (!data) {
-          throw new Error('Project not found. The link may be expired, invalid, or the project was never saved successfully.');
+          throw new Error('Project not found in both worker and localStorage. The project may not have been saved successfully, or the link is invalid.');
         }
         
-        console.log('Loaded data:', data);
+        console.log('📊 Processing loaded data...');
+        console.log('- Project ID:', data.projectId);
+        console.log('- Created:', data.createdAt);
+        console.log('- Current access count:', data.accessCount);
         
         state.projectId = data.projectId;
         state.createdAt = data.createdAt;
@@ -931,27 +961,39 @@
         
         // Increment access count and update display immediately
         state.accessCount = (data.accessCount || 0) + 1;
+        console.log('📈 Incremented access count to:', state.accessCount);
         updateExpiryUI(); // Update display immediately
         
         state.versionOrder = data.versionOrder || [];
         state.versions = data.versions || {};
         state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
 
+        console.log('🎨 Setting up UI...');
+        console.log('- Version order:', state.versionOrder);
+        console.log('- Current version:', state.currentVersion);
+
         setVersions(state.versionOrder);
         if (state.currentVersion && state.versions[state.currentVersion]) {
           renderAll();
+          console.log('✅ Rendered successfully');
+        } else {
+          console.log('⚠️ No valid version to render');
         }
 
         // Update share input with clean format
         if (shareInput){
-          shareInput.value = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+          const cleanUrl = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+          shareInput.value = cleanUrl;
+          console.log('🔗 Updated share link to clean format:', cleanUrl);
         }
         
         // Save the incremented access count
+        console.log('💾 Saving updated access count...');
         await saveProject();
+        console.log('✅ Load process completed successfully');
         
       }catch(err){
-        console.error('Load failed', err);
+        console.error('❌ Load process failed:', err);
         alert(`Could not load shared project: ${err.message}`);
       }
     }
