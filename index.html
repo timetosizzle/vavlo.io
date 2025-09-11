@@ -857,31 +857,30 @@
     let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
     function autoSave(){ if (state.projectId) saveProject(); }
 
-    // Robust shared loader - improved error handling with fallback
+    // Robust shared loader - simplified for clean URLs
     async function loadProjectFromShared(sharedVal){
       try{
         console.log('Loading shared project:', sharedVal);
         let id = null;
         
-        // Try URL form first
-        try{
-          const u = new URL(sharedVal);
-          console.log('Parsed URL:', u);
-          if (u.hostname === 'null'){
-            const parts = u.pathname.split('/').filter(Boolean);
-            id = parts[parts.length - 1];
-          }else{
+        // Handle different URL formats
+        if (sharedVal.includes('://')) {
+          // Old format with full URL - extract ID from the end
+          try{
+            const u = new URL(sharedVal);
             const m = u.pathname.match(/\/([^\/]+)(?:\.json)?$/);
             id = m ? m[1] : null;
+          }catch{
+            // If URL parsing fails, try to extract from the end
+            id = sharedVal.split('/').pop().replace(/\.json$/, '');
           }
-        }catch{
-          // Not a URL; maybe "null/<id>" or just "<id>"
-          const cleaned = String(sharedVal).replace(/^null\//, '').replace(/^\//, '');
-          id = cleaned.split('/').pop().replace(/\.json$/, '');
+        } else {
+          // New clean format - shared parameter is just the project ID
+          id = sharedVal.trim();
         }
 
         console.log('Extracted ID:', id);
-        if (!id) throw new Error('Could not extract project ID');
+        if (!id || id.length < 10) throw new Error('Invalid project ID format');
 
         // Try loading from worker first
         let data = null;
@@ -943,8 +942,9 @@
           renderAll();
         }
 
+        // Update share input with clean format
         if (shareInput){
-          shareInput.value = `${location.origin}${location.pathname}?shared=${encodeURIComponent(`${workerBase}/${state.projectId}`)}`;
+          shareInput.value = `${location.origin}${location.pathname}?shared=${state.projectId}`;
         }
         
         // Save the incremented access count
