@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <!-- Point this at YOUR Worker URL -->
   <meta name="worker-base" content="https://vavlo-worker.bear-8c2.workers.dev">
 
   <title>Vavlo - Image Annotation Tool</title>
@@ -31,7 +30,7 @@
     .brand img{height:22px}
     .spacer{flex:1}
 
-    select,.btn,input[type="text"],input[type="email"],input[type="password"],textarea{
+    select,.btn,input[type="text"],textarea{
       appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);
       border-radius:8px;padding:8px 10px
     }
@@ -64,6 +63,8 @@
       overflow:visible; /* let the page handle scrolling */
       padding:0; margin:0;
     }
+    .image-viewport.panning{cursor:grab !important}
+    .image-viewport.panning:active{cursor:grabbing !important}
     .image-inner{position:relative;transform-origin:top left}
     .image-inner img{
       position:relative;z-index:1;display:block;
@@ -78,6 +79,33 @@
     .marker.pending{opacity:.75;animation:pulse 1.4s ease-in-out infinite}
     @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(calc(1 / var(--z, 1)))}50%{transform:translate(-50%,-50%) scale(calc(1.15 / var(--z, 1)))}}
     .tooltip{position:absolute;padding:6px 8px;background:rgba(0,0,0,.85);color:#fff;border-radius:6px;font-size:12px;pointer-events:none;transform:translate(-50%,-120%) scale(calc(1 / var(--z, 1))) !important; transform-origin:bottom center; white-space:nowrap}
+
+    /* Instructions section */
+    .instructions{
+      background:var(--panel-2);
+      border:1px solid var(--line);
+      border-radius:8px;
+      margin:12px 14px;
+      padding:12px;
+    }
+    .instructions h4{
+      margin:0 0 8px 0;
+      color:var(--pink);
+      font-size:13px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+    .instructions ul{
+      margin:0;
+      padding-left:16px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+    .instructions li{
+      margin-bottom:4px;
+    }
 
     /* Sidebar */
     .side-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -107,10 +135,6 @@
 
     /* Zoom */
     #zoomReset{min-width:90px;text-align:center}
-
-    /* Auth modal */
-    #authModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000}
-    #authCard{background:#1f2340;border:1px solid #2b315a;border-radius:12px;padding:16px;min-width:320px}
   </style>
 </head>
 <body>
@@ -128,6 +152,7 @@
 
     <!-- Upload new version with icon -->
     <button class="btn" id="uploadNewVersion" data-testid="btn-upload-version" title="Upload new version">
+      <!-- inline svg icon -->
       <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="currentColor" d="M12 3l4 4h-3v6h-2V7H8l4-4zm-7 14h14v2H5v-2z"/>
       </svg>
@@ -143,15 +168,11 @@
 
     <div class="spacer"></div>
 
-    <!-- Share controls -->
+    <!-- Share controls moved to topbar -->
     <div class="share-controls">
-      <input id="shareLink" type="text" readonly placeholder="Share link appears after first save"/>
+      <input id="shareLink" type="text" readonly placeholder="Share link will appear here"/>
       <button class="btn primary" id="copyShare" title="Copy share link">Copy</button>
     </div>
-
-    <!-- Auth controls -->
-    <button class="btn" id="authBtn" title="Sign in">Sign in</button>
-    <span id="userBadge" class="pill" style="display:none"></span>
 
     <!-- Project info -->
     <div class="pill">Expires: <span id="expiresText">-</span></div>
@@ -170,7 +191,7 @@
         <input id="fileInput" type="file" accept="image/*" hidden/>
       </div>
 
-      <!-- Stage -->
+      <!-- Stage with no frame -->
       <section class="stage" id="stage" hidden>
         <div class="image-viewport" id="viewport">
           <div class="image-inner" id="imageInner">
@@ -183,6 +204,17 @@
 
     <!-- Sidebar -->
     <aside class="sidebar">
+      <!-- Instructions section -->
+      <div class="instructions">
+        <h4>How to Use</h4>
+        <ul>
+          <li><strong>Click</strong> on any part of the image to add a comment</li>
+          <li><strong>Hold Spacebar + Drag</strong> to pan around the image</li>
+          <li><strong>Use zoom controls</strong> or scroll wheel to zoom in/out</li>
+          <li><strong>Filter comments</strong> by status using the dropdown below</li>
+        </ul>
+      </div>
+
       <div class="side-head">
         <strong>Comments</strong>
         <div class="filters">
@@ -193,24 +225,10 @@
           </select>
         </div>
       </div>
-      <div id="comments" class="comments"></div>
-    </aside>
-  </div>
-
-  <!-- Auth modal -->
-  <div id="authModal">
-    <div id="authCard">
-      <h3 style="margin:0 0 10px 0">Sign in</h3>
-      <div class="form-row"><input id="authEmail" type="email" placeholder="Email"/></div>
-      <div class="form-row"><input id="authPass" type="password" placeholder="Password"/></div>
-      <div class="form-row" style="display:flex;gap:8px;align-items:center">
-        <button class="btn" id="doLogin">Login</button>
-        <button class="btn" id="doSignup">Sign up</button>
-        <div class="spacer"></div>
-        <button class="btn" id="closeAuth">Close</button>
+      <div id="comments" class="comments">
+        <!-- comments appear here -->
       </div>
-      <div class="muted" id="authMsg" style="margin-top:8px"></div>
-    </div>
+    </aside>
   </div>
 
   <script>
@@ -222,7 +240,6 @@
 
     const state = {
       projectId: null,
-      owner: null,
       createdAt: null,
       expiresAt: null,
       accessCount: 0,
@@ -232,31 +249,35 @@
       sharedMode: false,
       scale: 1,
       minScale: 0.1,
-      maxScale: 4,
-      step: 0.25,
+      maxScale: 5,
       imgNatural: { w: 0, h: 0 },
-      lastSharedJsonUrl: null,
+      panning: false,
+      panStart: { x: 0, y: 0 },
+      scrollStart: { x: 0, y: 0 },
     };
 
     const AUTHOR_KEY = 'vavlo.author';
-    const TOKEN_KEY = 'vavlo.token';
     function getSavedAuthor(){ try{ return localStorage.getItem(AUTHOR_KEY) || ''; }catch{ return ''; } }
     function setSavedAuthor(v){ try{ localStorage.setItem(AUTHOR_KEY, v || ''); }catch{} }
-    function getToken(){ try{ return localStorage.getItem(TOKEN_KEY) || ''; }catch{ return ''; } }
-    function setToken(t){ try{ t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); }catch{} }
-    async function authFetch(url, opts = {}){
-      const token = getToken();
-      const headers = new Headers(opts.headers || {});
-      if (token) headers.set('Authorization', `Bearer ${token}`);
-      return fetch(url, { ...opts, headers });
-    }
 
     // Worker base detection
     let workerBase = null;
     async function resolveWorkerBase(){
+      const DEFAULT = 'https://vavlo.io';
+
       const qp = new URLSearchParams(location.search).get('worker');
+      // no localStorage reads/writes here
       const meta = document.querySelector('meta[name="worker-base"]')?.getAttribute('content') || null;
-      const candidates = [ qp, meta, `${location.origin}/api`, `${location.origin}/worker`, 'https://api.vavlo.io' ].filter(Boolean);
+
+      const candidates = [
+        qp,
+        meta,
+        `${location.origin}/api`,
+        `${location.origin}/worker`,
+        'https://api.vavlo.io',
+        'https://vavlo-worker.your_domain_or_subdomain'
+      ].filter(Boolean);
+
       for (const base of candidates){
         try{
           const ctl = new AbortController();
@@ -266,7 +287,9 @@
           if (res.ok){ workerBase = base; return base; }
         }catch(_){ /* keep trying */ }
       }
-      throw new Error('Could not resolve worker base');
+
+      workerBase = DEFAULT; // hard fallback so links never say "null"
+      return workerBase;
     }
 
     // Elements
@@ -288,15 +311,6 @@
     const accessText = document.getElementById('accessText');
     const shareInput = document.getElementById('shareLink');
     const copyBtn = document.getElementById('copyShare');
-    const authBtn = document.getElementById('authBtn');
-    const userBadge = document.getElementById('userBadge');
-    const authModal = document.getElementById('authModal');
-    const authEmail = document.getElementById('authEmail');
-    const authPass = document.getElementById('authPass');
-    const doLogin = document.getElementById('doLogin');
-    const doSignup = document.getElementById('doSignup');
-    const closeAuth = document.getElementById('closeAuth');
-    const authMsg = document.getElementById('authMsg');
 
     // Versions
     function setVersions(list){
@@ -319,30 +333,131 @@
     }
     versionSelect.addEventListener('change', ()=>{ const v = versionSelect.value; if (!v) return; state.currentVersion = v; renderAll(); });
 
+    // Smart zoom system
+    function getSmartZoomLevel(direction) {
+      const currentZoom = state.scale;
+      const zoomLevels = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5];
+      
+      if (direction === 'in') {
+        // Find the next higher zoom level
+        for (let level of zoomLevels) {
+          if (level > currentZoom + 0.01) { // small tolerance for float comparison
+            return level;
+          }
+        }
+        return state.maxScale;
+      } else {
+        // Find the next lower zoom level
+        for (let i = zoomLevels.length - 1; i >= 0; i--) {
+          if (zoomLevels[i] < currentZoom - 0.01) {
+            return zoomLevels[i];
+          }
+        }
+        return state.minScale;
+      }
+    }
+
     // Zoom and fit
     function applyScale(){
       imageInner.style.transform = `scale(${state.scale})`;
-      imageInner.style.setProperty('--z', String(state.scale));
+      imageInner.style.setProperty('--z', String(state.scale)); // keep markers/tooltips same visual size
       zoomResetBtn.textContent = Math.round(state.scale * 100) + '%';
       if (state.imgNatural.h){
-        viewport.style.height = (state.imgNatural.h * state.scale) + 'px';
+        viewport.style.height = (state.imgNatural.h * state.scale) + 'px'; // prevent extra bottom gap
       }
     }
     function fitToViewport(){
       if (!state.versions[state.currentVersion]) return;
-      const vw = viewport.clientWidth;
+      const vw = viewport.clientWidth;           // fit width so we avoid horizontal scroll
       const sx = vw / state.imgNatural.w;
-      state.scale = Math.min(1, Math.max(sx, 0.2));
+      // cap at 1 so we do not upscale by default
+      state.scale = Math.min(1, Math.max(sx, 0.1));
       applyScale();
     }
-    zoomInBtn.addEventListener('click', ()=>{ state.scale = Math.min(state.maxScale, +(state.scale + state.step).toFixed(2)); applyScale(); });
-    zoomOutBtn.addEventListener('click', ()=>{ state.scale = Math.max(state.minScale, +(state.scale - state.step).toFixed(2)); applyScale(); });
+    zoomInBtn.addEventListener('click', ()=>{ state.scale = getSmartZoomLevel('in'); applyScale(); });
+    zoomOutBtn.addEventListener('click', ()=>{ state.scale = getSmartZoomLevel('out'); applyScale(); });
     zoomResetBtn.addEventListener('click', fitToViewport);
     window.addEventListener('resize', ()=>{ if (!stage.hidden) fitToViewport(); });
 
-    // Uploads
-    chooseFileBtn.addEventListener('click', ()=> fileInput.click());
-    dropzone.addEventListener('click', ()=> fileInput.click());
+    // Spacebar panning functionality
+    let spacePressed = false;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !e.repeat && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !e.target.contentEditable) {
+        e.preventDefault();
+        spacePressed = true;
+        if (!stage.hidden) {
+          viewport.classList.add('panning');
+        }
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        spacePressed = false;
+        viewport.classList.remove('panning');
+        state.panning = false;
+      }
+    });
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (spacePressed && !stage.hidden) {
+        e.preventDefault();
+        state.panning = true;
+        state.panStart = { x: e.clientX, y: e.clientY };
+        state.scrollStart = { 
+          x: viewport.parentElement.scrollLeft, 
+          y: viewport.parentElement.scrollTop 
+        };
+        viewport.style.cursor = 'grabbing';
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (state.panning && spacePressed) {
+        e.preventDefault();
+        const deltaX = state.panStart.x - e.clientX;
+        const deltaY = state.panStart.y - e.clientY;
+        
+        viewport.parentElement.scrollLeft = state.scrollStart.x + deltaX;
+        viewport.parentElement.scrollTop = state.scrollStart.y + deltaY;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (state.panning) {
+        state.panning = false;
+        viewport.style.cursor = spacePressed ? 'grab' : '';
+      }
+    });
+
+    // Mouse wheel zoom
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          state.scale = getSmartZoomLevel('in');
+        } else {
+          state.scale = getSmartZoomLevel('out');
+        }
+        applyScale();
+      }
+    });
+
+    // Uploads - Fix double click issue
+    chooseFileBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent dropzone click
+      fileInput.click();
+    });
+    
+    // Only add click to dropzone area, not the button
+    dropzone.addEventListener('click', (e) => {
+      if (e.target === chooseFileBtn || chooseFileBtn.contains(e.target)) {
+        return; // don't trigger if clicking the button
+      }
+      fileInput.click();
+    });
+    
     dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--pink)'; });
     dropzone.addEventListener('dragleave', ()=> { dropzone.style.borderColor = 'var(--line)'; });
     dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--line)'; const file = e.dataTransfer.files && e.dataTransfer.files[0]; if (file) addNewVersionFromFile(file); });
@@ -353,62 +468,46 @@
       fileInput.click();
     });
 
-    async function ensureProjectId(){
+    async function ensureProjectIdAndLink(){
       if (!state.projectId){
-        state.projectId = cryptoRandomId(32);
+        state.projectId = cryptoRandomId(64);
         state.createdAt = new Date().toISOString();
         state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString();
         state.accessCount = 0;
       }
+      const sharedDisplay = `${workerBase}/${state.projectId}`; // no .json in UI
+      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedDisplay)}`;
+      if (shareInput){ shareInput.value = appUrl; }
+      await saveProject();
     }
 
     async function addNewVersionFromFile(file){
       if (state.sharedMode){ alert('Uploading new versions is disabled for shared viewers.'); return; }
       if (!file) return;
-      await ensureProjectId();
-
-      const nextNum = Math.max(0, ...state.versionOrder.map(v=> parseInt(v.replace(/\D/g,''))||0)) + 1;
-      const vKey = `v${nextNum}`;
-
-      // Upload to Worker - returns Dropbox direct URL
-      const imgUrl = await uploadImageToWorker(file, vKey);
-      if (!imgUrl){ alert('Upload failed'); return; }
-
-      // Create version
-      state.versions[vKey] = { imageSrc: imgUrl, comments: [], nextId: 1 };
-      setVersions([vKey, ...state.versionOrder]);
-      state.currentVersion = vKey;
-      await renderFromImage(imgUrl);
-      await persistProject();
+      const url = URL.createObjectURL(file);
+      await ensureProjectIdAndLink();
+      await addVersionFromImageURL(url);
     }
 
-    async function uploadImageToWorker(file, vKey){
-      try{
-        const key = `uploads/${state.projectId}/${vKey}-${Date.now()}-${sanitizeFilename(file.name || 'image')}`;
-        const form = new FormData();
-        form.append('file', file);
-        form.append('key', key);
-        const res = await authFetch(`${workerBase}/upload`, { method:'POST', body: form });
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok || !data.imageUrl) throw new Error(data.error || 'upload failed');
-        return data.imageUrl;
-      }catch(e){ console.error('upload error', e); return null; }
-    }
-
-    async function renderFromImage(url){
-      return new Promise((resolve)=>{
-        img.onload = ()=>{
-          state.imgNatural.w = img.naturalWidth; state.imgNatural.h = img.naturalHeight;
-          imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px';
-          stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport();
-          resolve();
-        };
-        img.src = url;
-      });
+    async function addVersionFromImageURL(url){
+      const imgLoad = new Image();
+      imgLoad.onload = () => {
+        const nextNum = Math.max(0, ...state.versionOrder.map(v=> parseInt(v.replace(/\D/g,''))||0)) + 1;
+        const vKey = `v${nextNum}`;
+        state.versions[vKey] = { imageSrc: url, comments: [], nextId: 1 };
+        state.imgNatural.w = imgLoad.naturalWidth; state.imgNatural.h = imgLoad.naturalHeight;
+        imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px';
+        setVersions([vKey, ...state.versionOrder]);
+        state.currentVersion = vKey;
+        stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport(); autoSave();
+      };
+      imgLoad.src = url;
     }
 
     imageInner.addEventListener('click', (e) => {
       if (e.target.classList.contains('marker')) return;
+      if (state.panning || spacePressed) return; // don't add comments while panning
+      
       const rect = imageInner.getBoundingClientRect();
       const xScaled = e.clientX - rect.left; const yScaled = e.clientY - rect.top;
       const x = xScaled / state.scale; const y = yScaled / state.scale;
@@ -430,25 +529,6 @@
       const existing = imageInner.querySelector('.marker.pending'); if (existing) existing.remove();
     }
 
-    // Comments placeholder hint
-    function ensureCommentsHint(){
-      const v = state.versions[state.currentVersion];
-      const hasAny = v && v.comments && v.comments.length > 0;
-      let hint = document.getElementById('comments-hint');
-      if (!hasAny){
-        if (!hint){
-          hint = document.createElement('div');
-          hint.id = 'comments-hint';
-          hint.className = 'comment';
-          hint.style.opacity = '0.8';
-          hint.innerHTML = `<em>Click on the image to write a comment</em>`;
-          commentsEl.prepend(hint);
-        }
-      }else{
-        if (hint) hint.remove();
-      }
-    }
-
     function openNewCommentForm(xPct, yPct){
       const namePrefill = getSavedAuthor();
       const container = document.createElement('div'); container.className = 'new-comment comment';
@@ -464,7 +544,6 @@
       container.dataset.xpct = String(xPct); container.dataset.ypct = String(yPct);
       commentsEl.prepend(container);
       showPendingMarker(xPct, yPct);
-      const hint = document.getElementById('comments-hint'); if (hint) hint.remove();
     }
 
     commentsEl.addEventListener('click', (e)=>{
@@ -485,7 +564,6 @@
       if (action === 'cancel-new'){
         const wrap = t.closest('.new-comment'); if (wrap) wrap.remove();
         removePendingMarker();
-        ensureCommentsHint();
         return;
       }
 
@@ -633,11 +711,6 @@
         .filter(c => filter==='all' ? true : filter==='resolved' ? c.resolved : !c.resolved)
         .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
 
-      if (filteredComments.length === 0){
-        ensureCommentsHint();
-        return;
-      }
-
       filteredComments.forEach((c, index) => {
         const displayNumber = index + 1;
         const card = document.createElement('div'); card.className = `comment ${c.resolved ? 'resolved':''}`;
@@ -689,115 +762,84 @@
 
     // Share
     async function copyShareLink(){
-      if (!shareInput.value){ await persistProject(); }
-      const link = shareInput && shareInput.value ? shareInput.value : '';
+      let link = shareInput && shareInput.value ? shareInput.value : '';
+      if (!link){ await ensureProjectIdAndLink(); link = shareInput.value; }
       try{ await navigator.clipboard.writeText(link); alert('Share link copied'); }catch(e){ alert('Copy failed'); }
     }
     copyBtn.addEventListener('click', copyShareLink);
 
-    // Save - stores JSON via Worker and returns Dropbox URL
-    async function persistProject(){
+    // Save-load
+    async function saveProject(){
       try{
-        await ensureProjectId();
         const payload = {
-          project: {
-            id: state.projectId,
-            owner: state.owner || null,
-            createdAt: state.createdAt,
-            expiresAt: state.expiresAt,
-            accessCount: state.accessCount,
-            versionOrder: state.versionOrder,
-            currentVersion: state.currentVersion,
-            versions: state.versions,
-          },
-          comments: null
+          projectId: state.projectId,
+          createdAt: state.createdAt,
+          expiresAt: state.expiresAt,
+          accessCount: state.accessCount,
+          versionOrder: state.versionOrder,
+          currentVersion: state.currentVersion,
+          versions: state.versions,
         };
-        if (!workerBase) return;
-        const res = await authFetch(`${workerBase}/save-project`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok){ console.warn('Save failed', data); return; }
-        state.owner = data.owner || state.owner;
-        state.lastSharedJsonUrl = data.sharedJsonUrl || state.lastSharedJsonUrl;
-        if (shareInput && state.lastSharedJsonUrl){
-          const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(state.lastSharedJsonUrl)}`;
-          shareInput.value = appUrl;
-        }
+        if (!state.projectId || !workerBase) return;
+        await fetch(`${workerBase}/${state.projectId}.json`, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
       }catch(err){ console.warn('Save failed', err); }
     }
     let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
-    function autoSave(){ if (state.projectId) persistProject(); }
+    function autoSave(){ if (state.projectId) saveProject(); }
 
-    // Robust shared loader for Dropbox direct links
+    // Robust shared loader that tolerates shared=null/<id>
     async function loadProjectFromShared(sharedVal){
       try{
-        let url = '';
+        let id = null;
+        // Try URL form first
         try{
           const u = new URL(sharedVal);
-          if (/dropbox/i.test(u.hostname) && !/dl\.dropboxusercontent\.com/i.test(u.hostname)){
-            u.hostname = 'dl.dropboxusercontent.com';
-            u.search = '';
+          if (u.hostname === 'null'){
+            const parts = u.pathname.split('/').filter(Boolean);
+            id = parts[parts.length - 1];
+          }else{
+            const m = u.pathname.match(/\/([^\/]+)(?:\.json)?$/);
+            id = m ? m[1] : null;
           }
-          url = u.toString();
         }catch{
-          throw new Error('Invalid shared URL. Ask the owner to share again.');
+          // Not a URL; maybe "null/<id>" or just "<id>"
+          const cleaned = String(sharedVal).replace(/^null\//, '').replace(/^\//, '');
+          id = cleaned.split('/').pop().replace(/\.json$/, '');
         }
 
-        console.log('[load] fetching', url);
+        if (!id) throw new Error('bad id');
+
+        const url = `${workerBase}/${id}.json`;
         const res = await fetch(url, { cache:'no-store' });
-        console.log('[load] status', res.status);
         if (!res.ok) throw new Error('load failed');
 
         const data = await res.json();
-        // Expect { project, comments }
-        const p = data.project || {};
-        state.projectId = p.id || null;
-        state.owner = p.owner || null;
-        state.createdAt = p.createdAt || null;
-        state.expiresAt = p.expiresAt || null;
-        state.accessCount = (p.accessCount||0) + 1;
-        state.versionOrder = p.versionOrder || [];
-        state.versions = p.versions || {};
-        state.currentVersion = p.currentVersion || (p.versionOrder && p.versionOrder[0]) || null;
-        state.lastSharedJsonUrl = url;
+        state.projectId = data.projectId;
+        state.createdAt = data.createdAt;
+        state.expiresAt = data.expiresAt;
+        state.accessCount = (data.accessCount||0) + 1;
+        state.versionOrder = data.versionOrder;
+        state.versions = data.versions;
+        state.currentVersion = data.currentVersion || (data.versionOrder && data.versionOrder[0]);
 
         setVersions(state.versionOrder);
         renderAll();
         updateExpiryUI();
 
         if (shareInput){
-          shareInput.value = `${location.origin}${location.pathname}?shared=${encodeURIComponent(url)}`;
+          shareInput.value = `${location.origin}${location.pathname}?shared=${encodeURIComponent(`${workerBase}/${state.projectId}`)}`;
         }
-
-        // If owner is logged in, enable editing even on shared URL
-        await enableOwnerIfLoggedIn(state.owner);
-
-        // Persist updated access count
-        await persistProject();
+        await saveProject();
       }catch(err){
         console.error('Load failed', err);
         alert('Could not load shared project.');
       }
     }
 
-    async function enableOwnerIfLoggedIn(projectOwner){
-      if (!projectOwner) return;
-      try{
-        const me = await authFetch(`${workerBase}/auth/me`);
-        const data = await me.json().catch(()=>({}));
-        const isOwner = me.ok && data.ok && data.user && data.user.email === projectOwner;
-        if (isOwner){
-          state.sharedMode = false;
-          uploadBtn.disabled = false;
-          uploadBtn.title = 'Upload new version';
-        }
-      }catch{}
-    }
-
     // Utils
     function formatTime(iso){ try{ const d = new Date(iso); return d.toLocaleString(); } catch{ return '' } }
     function truncate(str, n){ return (str||'').length > n ? (str||'').slice(0,n-1)+'…' : (str||''); }
     function sanitize(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
-    function sanitizeFilename(name){ return String(name).replace(/[^\w.\-]+/g,'_').slice(0,120); }
     function cryptoRandomId(len){ const arr = new Uint8Array(len); (crypto||window.crypto).getRandomValues(arr); const abc = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let out=''; for(const n of arr){ out += abc[n % abc.length]; } return out; }
 
     function updateExpiryUI(){
@@ -808,72 +850,21 @@
       accessText.textContent = String(state.accessCount || 0);
     }
 
-    // Auth UI
-    authBtn.addEventListener('click', ()=>{
-      if (authBtn.textContent === 'Sign out'){
-        setToken('');
-        userBadge.style.display = 'none';
-        authBtn.textContent = 'Sign in';
-      } else {
-        authModal.style.display = 'flex'; authMsg.textContent='';
-      }
-    });
-    closeAuth.addEventListener('click', ()=> authModal.style.display='none');
-
-    async function authCall(path, payload){
-      const res = await fetch(`${workerBase}${path}`, { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(payload) });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Auth failed');
-      setToken(data.token);
-      userBadge.style.display = 'inline';
-      userBadge.textContent = data.user.email;
-      authBtn.textContent = 'Sign out';
-      authModal.style.display = 'none';
-      // If on a shared page and you are the owner, enable editing
-      if (state.sharedMode && state.owner){ await enableOwnerIfLoggedIn(state.owner); }
-    }
-
-    doLogin.addEventListener('click', async ()=>{ try{ await authCall('/auth/login', { email: authEmail.value, password: authPass.value }); }catch(e){ authMsg.textContent = e.message; } });
-    doSignup.addEventListener('click', async ()=>{ try{ await authCall('/auth/signup', { email: authEmail.value, password: authPass.value, name:'' }); }catch(e){ authMsg.textContent = e.message; } });
-
-    async function hydrateAuthUI(){
-      const token = getToken();
-      if (!token) { authBtn.textContent='Sign in'; userBadge.style.display='none'; return; }
-      const res = await fetch(`${workerBase}/auth/me`, { headers:{ 'Authorization': `Bearer ${token}` }});
-      const data = await res.json().catch(()=>({}));
-      if (res.ok && data.ok){
-        authBtn.textContent='Sign out';
-        userBadge.style.display='inline';
-        userBadge.textContent = data.user.email;
-      } else {
-        setToken('');
-        authBtn.textContent='Sign in';
-        userBadge.style.display='none';
-      }
-    }
-
     // Init
     (async function init(){
-      try{
-        await resolveWorkerBase();
-        await hydrateAuthUI();
+      await resolveWorkerBase();
 
-        const shared = new URLSearchParams(location.search).get('shared');
-        if (shared){
-          state.sharedMode = true;
-          uploadBtn.disabled = true;
-          uploadBtn.title = 'Uploads disabled for shared viewers';
-          await loadProjectFromShared(shared);
-          return;
-        }
-        // New project flow
-        setVersions([]);
-        updateExpiryUI();
-        ensureCommentsHint();
-      }catch(e){
-        console.error('Init failed', e);
-        alert('Setup problem - check worker-base meta tag.');
+      const shared = new URLSearchParams(location.search).get('shared');
+      if (shared){
+        state.sharedMode = true;
+        uploadBtn.disabled = true;
+        uploadBtn.title = 'Uploads disabled for shared viewers';
+        await loadProjectFromShared(shared);
+        return;
       }
+      await ensureProjectIdAndLink();
+      setVersions([]);
+      updateExpiryUI();
     })();
   </script>
 </body>
