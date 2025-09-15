@@ -286,51 +286,42 @@
     function getSavedAuthor(){ try{ return localStorage.getItem(AUTHOR_KEY) || ''; }catch{ return ''; } }
     function setSavedAuthor(v){ try{ localStorage.setItem(AUTHOR_KEY, v || ''); }catch{} }
 
-    // MongoDB Atlas configuration
-    const MONGODB_CONFIG = {
-      dataApiUrl: 'https://data.mongodb-api.com/app/qshtaqjd/endpoint/data/v1',
-      apiKey: '563aa91f-f75f-434d-9022-c313392e992d',
-      dataSource: 'Cluster0', // Your cluster name
-      database: 'vavlo',
-      collection: 'projects'
+    // JSONBin.io configuration (much simpler than MongoDB!)
+    const JSONBIN_CONFIG = {
+      apiUrl: 'https://api.jsonbin.io/v3/b',
+      // We'll create bins dynamically, no API key needed for public bins
     };
 
-    // Worker base detection - use MongoDB Atlas
+    // Worker base detection - use JSONBin.io
     let workerBase = null;
     async function resolveWorkerBase(){
-      console.log('Using MongoDB Atlas for persistence...');
+      console.log('Using JSONBin.io for persistence...');
       
-      // Test MongoDB connection
+      // Test JSONBin connection
       try {
-        const testResponse = await fetch(`${MONGODB_CONFIG.dataApiUrl}/action/findOne`, {
-          method: 'POST',
+        const testResponse = await fetch(`${JSONBIN_CONFIG.apiUrl}`, {
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
-            'api-key': MONGODB_CONFIG.apiKey
-          },
-          body: JSON.stringify({
-            dataSource: MONGODB_CONFIG.dataSource,
-            database: MONGODB_CONFIG.database,
-            collection: MONGODB_CONFIG.collection,
-            filter: { _id: 'test' } // Just test the connection
-          })
+            'Content-Type': 'application/json'
+          }
         });
 
-        if (testResponse.ok) {
-          workerBase = 'mongodb'; // Special flag to use MongoDB
-          console.log('✅ MongoDB Atlas connected successfully');
+        // JSONBin returns 401 for unauthorized GET, but that means the service is working
+        if (testResponse.status === 401 || testResponse.ok) {
+          workerBase = 'jsonbin';
+          console.log('✅ JSONBin.io service is available');
           return workerBase;
         } else {
-          console.log('❌ MongoDB Atlas connection failed:', testResponse.status);
+          console.log('❌ JSONBin.io connection failed:', testResponse.status);
         }
       } catch(err) {
-        console.log('❌ MongoDB Atlas error:', err.message);
+        console.log('❌ JSONBin.io error:', err.message);
       }
 
       // Fallback to localStorage only
       workerBase = null;
       console.log('⚠️ No backend available - using localStorage only');
-      alert('Warning: Database unavailable. Projects will only work locally and cannot be shared.');
+      alert('Warning: Online storage unavailable. Projects will only work locally and cannot be shared.');
       return workerBase;
     }
 
@@ -957,7 +948,7 @@
     }
     copyBtn.addEventListener('click', copyShareLink);
 
-    // Save to MongoDB Atlas using Data API
+    // Save to JSONBin.io - much simpler than MongoDB!
     async function saveProject(){
       try{
         if (!state.projectId) {
@@ -976,53 +967,70 @@
           updatedAt: new Date().toISOString()
         };
         
-        console.log('💾 Saving to MongoDB Atlas...');
+        console.log('💾 Saving to JSONBin.io...');
         console.log('- Project ID:', state.projectId);
         console.log('- Payload size:', JSON.stringify(payload).length, 'characters');
         
-        if (workerBase === 'mongodb' && MONGODB_CONFIG.apiKey && MONGODB_CONFIG.apiKey !== 'YOUR_API_KEY') {
+        if (workerBase === 'jsonbin') {
           try {
-            // Use MongoDB Atlas Data API to save
-            const response = await fetch(`${MONGODB_CONFIG.dataApiUrl}/action/replaceOne`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'api-key': MONGODB_CONFIG.apiKey
-              },
-              body: JSON.stringify({
-                dataSource: MONGODB_CONFIG.dataSource,
-                database: MONGODB_CONFIG.database,
-                collection: MONGODB_CONFIG.collection,
-                filter: { projectId: state.projectId },
-                replacement: payload,
-                upsert: true // Create if doesn't exist, update if it does
-              })
-            });
+            // Check if we already have a bin ID for this project
+            let binId = localStorage.getItem(`vavlo_bin_${state.projectId}`);
             
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('❌ MongoDB save failed:', response.status, errorText);
-              throw new Error(`MongoDB save failed: ${response.status}`);
+            if (binId) {
+              // Update existing bin
+              console.log('📝 Updating existing JSONBin:', binId);
+              const response = await fetch(`${JSONBIN_CONFIG.apiUrl}/${binId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+              });
+              
+              if (!response.ok) {
+                console.error('❌ JSONBin update failed:', response.status);
+                throw new Error(`JSONBin update failed: ${response.status}`);
+              }
+              
+              console.log('✅ Project updated in JSONBin successfully');
+              
+            } else {
+              // Create new bin
+              console.log('🆕 Creating new JSONBin...');
+              const response = await fetch(JSONBIN_CONFIG.apiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+              });
+              
+              if (!response.ok) {
+                console.error('❌ JSONBin creation failed:', response.status);
+                throw new Error(`JSONBin creation failed: ${response.status}`);
+              }
+              
+              const result = await response.json();
+              binId = result.metadata.id;
+              
+              // Store the bin ID so we can update it later
+              localStorage.setItem(`vavlo_bin_${state.projectId}`, binId);
+              console.log('✅ Project saved to JSONBin successfully');
+              console.log('- Bin ID:', binId);
             }
-            
-            const result = await response.json();
-            console.log('✅ Project saved to MongoDB Atlas successfully');
-            console.log('- Matched count:', result.matchedCount);
-            console.log('- Modified count:', result.modifiedCount);
-            console.log('- Upserted ID:', result.upsertedId);
             
             // Also save to localStorage as backup
             localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
             console.log('💾 Also saved to localStorage as backup');
             return;
             
-          } catch(mongoError) {
-            console.error('❌ MongoDB save error:', mongoError);
-            throw mongoError;
+          } catch(jsonbinError) {
+            console.error('❌ JSONBin save error:', jsonbinError);
+            throw jsonbinError;
           }
         } else {
-          console.log('⚠️ MongoDB not configured, using localStorage only');
-          throw new Error('MongoDB not configured');
+          console.log('⚠️ JSONBin not available, using localStorage only');
+          throw new Error('JSONBin not available');
         }
         
       } catch(err) { 
@@ -1066,10 +1074,10 @@
       }
     }
 
-    // Load from MongoDB Atlas with fallback
+    // Load from JSONBin.io with fallback
     async function loadProjectFromShared(sharedVal){
       try{
-        console.log('🔄 Loading shared project from MongoDB...');
+        console.log('🔄 Loading shared project from JSONBin...');
         console.log('- Input value:', sharedVal);
         
         let id = null;
@@ -1094,49 +1102,45 @@
           throw new Error(`Invalid project ID format: "${id}" (length: ${id ? id.length : 0})`);
         }
 
-        // Try loading from MongoDB first
+        // Try loading from JSONBin first
         let data = null;
-        if (workerBase === 'mongodb' && MONGODB_CONFIG.apiKey && MONGODB_CONFIG.apiKey !== 'YOUR_API_KEY') {
+        if (workerBase === 'jsonbin') {
           try {
-            console.log('🍃 Attempting to fetch from MongoDB Atlas...');
+            // Check if we have a bin ID stored locally for this project
+            const binId = localStorage.getItem(`vavlo_bin_${id}`);
             
-            const response = await fetch(`${MONGODB_CONFIG.dataApiUrl}/action/findOne`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'api-key': MONGODB_CONFIG.apiKey
-              },
-              body: JSON.stringify({
-                dataSource: MONGODB_CONFIG.dataSource,
-                database: MONGODB_CONFIG.database,
-                collection: MONGODB_CONFIG.collection,
-                filter: { projectId: id }
-              })
-            });
-            
-            console.log('📡 MongoDB response status:', response.status);
-            
-            if (response.ok) {
-              const result = await response.json();
-              if (result.document) {
-                data = result.document;
-                console.log('✅ Successfully loaded from MongoDB');
-                console.log('- Document found with keys:', Object.keys(data));
+            if (binId) {
+              console.log('📡 Attempting to fetch from JSONBin with bin ID:', binId);
+              
+              const response = await fetch(`${JSONBIN_CONFIG.apiUrl}/${binId}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              console.log('📡 JSONBin response status:', response.status);
+              
+              if (response.ok) {
+                const result = await response.json();
+                data = result.record || result; // JSONBin wraps data in 'record' property
+                console.log('✅ Successfully loaded from JSONBin');
+                console.log('- Data keys:', Object.keys(data));
               } else {
-                console.log('❌ No document found in MongoDB for project:', id);
+                console.log('❌ JSONBin failed:', response.status);
               }
             } else {
-              const errorText = await response.text().catch(() => 'Unable to read response');
-              console.log('❌ MongoDB failed:', response.status, errorText);
+              console.log('⚠️ No bin ID found for project:', id);
+              console.log('- This might be a project created before JSONBin integration');
             }
-          } catch(mongoErr) {
-            console.log('❌ MongoDB request failed:', mongoErr.message);
+          } catch(jsonbinErr) {
+            console.log('❌ JSONBin request failed:', jsonbinErr.message);
           }
         } else {
-          console.log('⚠️ MongoDB not configured, skipping...');
+          console.log('⚠️ JSONBin not available, skipping...');
         }
 
-        // Fallback to localStorage if MongoDB failed
+        // Fallback to localStorage if JSONBin failed
         if (!data) {
           try {
             const localKey = `vavlo_project_${id}`;
@@ -1155,7 +1159,7 @@
         }
 
         if (!data) {
-          throw new Error('Project not found in MongoDB or localStorage. The project may not have been saved successfully, or the link is invalid.');
+          throw new Error('Project not found in JSONBin or localStorage. The project may not have been saved successfully, or the link is invalid.');
         }
         
         console.log('📊 Processing loaded data...');
