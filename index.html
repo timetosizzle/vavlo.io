@@ -286,10 +286,11 @@
     function getSavedAuthor(){ try{ return localStorage.getItem(AUTHOR_KEY) || ''; }catch{ return ''; } }
     function setSavedAuthor(v){ try{ localStorage.setItem(AUTHOR_KEY, v || ''); }catch{} }
 
-    // JSONBin.io configuration (much simpler than MongoDB!)
+    // JSONBin.io configuration (corrected endpoints)
     const JSONBIN_CONFIG = {
-      apiUrl: 'https://api.jsonbin.io/v3/b',
-      // We'll create bins dynamically, no API key needed for public bins
+      createUrl: 'https://api.jsonbin.io/v3/b',
+      readUrl: 'https://api.jsonbin.io/v3/b',
+      // No API key needed for public bins
     };
 
     // Worker base detection - use JSONBin.io
@@ -297,22 +298,26 @@
     async function resolveWorkerBase(){
       console.log('Using JSONBin.io for persistence...');
       
-      // Test JSONBin connection
+      // Test JSONBin connection by trying to create a test bin
       try {
-        const testResponse = await fetch(`${JSONBIN_CONFIG.apiUrl}`, {
-          method: 'GET',
+        const testPayload = { test: 'connection', timestamp: Date.now() };
+        const testResponse = await fetch(JSONBIN_CONFIG.createUrl, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify(testPayload)
         });
 
-        // JSONBin returns 401 for unauthorized GET, but that means the service is working
-        if (testResponse.status === 401 || testResponse.ok) {
+        console.log('JSONBin test response status:', testResponse.status);
+        
+        if (testResponse.ok) {
           workerBase = 'jsonbin';
-          console.log('✅ JSONBin.io service is available');
+          console.log('✅ JSONBin.io service is working');
           return workerBase;
         } else {
-          console.log('❌ JSONBin.io connection failed:', testResponse.status);
+          const responseText = await testResponse.text().catch(() => 'Unable to read response');
+          console.log('❌ JSONBin.io test failed:', testResponse.status, responseText);
         }
       } catch(err) {
         console.log('❌ JSONBin.io error:', err.message);
@@ -948,7 +953,7 @@
     }
     copyBtn.addEventListener('click', copyShareLink);
 
-    // Save to JSONBin.io - much simpler than MongoDB!
+    // Save to JSONBin.io - simplified approach
     async function saveProject(){
       try{
         if (!state.projectId) {
@@ -967,70 +972,81 @@
           updatedAt: new Date().toISOString()
         };
         
-        console.log('💾 Saving to JSONBin.io...');
+        console.log('💾 Attempting to save to JSONBin.io...');
         console.log('- Project ID:', state.projectId);
         console.log('- Payload size:', JSON.stringify(payload).length, 'characters');
         
-        if (workerBase === 'jsonbin') {
-          try {
-            // Check if we already have a bin ID for this project
-            let binId = localStorage.getItem(`vavlo_bin_${state.projectId}`);
+        try {
+          // Check if we already have a bin ID for this project
+          let binId = localStorage.getItem(`vavlo_bin_${state.projectId}`);
+          
+          if (binId) {
+            // Update existing bin
+            console.log('📝 Updating existing JSONBin:', binId);
+            const response = await fetch(`${JSONBIN_CONFIG.readUrl}/${binId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
             
-            if (binId) {
-              // Update existing bin
-              console.log('📝 Updating existing JSONBin:', binId);
-              const response = await fetch(`${JSONBIN_CONFIG.apiUrl}/${binId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-              });
-              
-              if (!response.ok) {
-                console.error('❌ JSONBin update failed:', response.status);
-                throw new Error(`JSONBin update failed: ${response.status}`);
-              }
-              
+            console.log('JSONBin update response:', response.status);
+            
+            if (response.ok) {
               console.log('✅ Project updated in JSONBin successfully');
-              
+              workerBase = 'jsonbin'; // Mark as working
             } else {
-              // Create new bin
-              console.log('🆕 Creating new JSONBin...');
-              const response = await fetch(JSONBIN_CONFIG.apiUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-              });
-              
-              if (!response.ok) {
-                console.error('❌ JSONBin creation failed:', response.status);
-                throw new Error(`JSONBin creation failed: ${response.status}`);
-              }
-              
-              const result = await response.json();
-              binId = result.metadata.id;
-              
-              // Store the bin ID so we can update it later
-              localStorage.setItem(`vavlo_bin_${state.projectId}`, binId);
-              console.log('✅ Project saved to JSONBin successfully');
-              console.log('- Bin ID:', binId);
+              const errorText = await response.text().catch(() => 'Unable to read response');
+              console.error('❌ JSONBin update failed:', response.status, errorText);
+              throw new Error(`JSONBin update failed: ${response.status}`);
             }
             
-            // Also save to localStorage as backup
-            localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
-            console.log('💾 Also saved to localStorage as backup');
-            return;
+          } else {
+            // Create new bin
+            console.log('🆕 Creating new JSONBin...');
+            const response = await fetch(JSONBIN_CONFIG.createUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
             
-          } catch(jsonbinError) {
-            console.error('❌ JSONBin save error:', jsonbinError);
-            throw jsonbinError;
+            console.log('JSONBin create response:', response.status);
+            
+            if (response.ok) {
+              const result = await response.json();
+              console.log('JSONBin create result:', result);
+              
+              // Different APIs might return the ID in different places
+              binId = result.metadata?.id || result.id || result.record?.id;
+              
+              if (binId) {
+                // Store the bin ID so we can update it later
+                localStorage.setItem(`vavlo_bin_${state.projectId}`, binId);
+                console.log('✅ Project saved to JSONBin successfully');
+                console.log('- Bin ID:', binId);
+                workerBase = 'jsonbin'; // Mark as working
+              } else {
+                console.error('❌ No bin ID returned from JSONBin');
+                throw new Error('No bin ID returned from JSONBin');
+              }
+            } else {
+              const errorText = await response.text().catch(() => 'Unable to read response');
+              console.error('❌ JSONBin creation failed:', response.status, errorText);
+              throw new Error(`JSONBin creation failed: ${response.status}`);
+            }
           }
-        } else {
-          console.log('⚠️ JSONBin not available, using localStorage only');
-          throw new Error('JSONBin not available');
+          
+          // Also save to localStorage as backup
+          localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
+          console.log('💾 Also saved to localStorage as backup');
+          return;
+          
+        } catch(jsonbinError) {
+          console.error('❌ JSONBin save error:', jsonbinError);
+          throw jsonbinError;
         }
         
       } catch(err) { 
