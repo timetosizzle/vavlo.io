@@ -43,6 +43,7 @@
     /* Layout */
     .wrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:calc(100% - 58px)}
     .canvas-area{position:relative;overflow:auto;background:radial-gradient(1200px 1200px at 50% -10%, #1a1f3e, #0f1221 60%)}
+    .canvas-area.pan-active{cursor:grabbing !important}
     .sidebar{border-left:1px solid var(--line);background:var(--panel);overflow:auto}
 
     @media (max-width: 980px){
@@ -296,10 +297,10 @@
       const candidates = [
         qp,
         meta,
+        'https://vavlo-worker.bear-8c2.workers.dev',
         `${location.origin}/api`,
         `${location.origin}/worker`,
-        'https://api.vavlo.io',
-        'https://vavlo-worker.bear-8c2.workers.dev'
+        'https://api.vavlo.io'
       ].filter(Boolean);
 
       console.log('Trying candidates:', candidates);
@@ -308,8 +309,12 @@
         try{
           console.log(`Testing: ${base}/health`);
           const ctl = new AbortController();
-          const t = setTimeout(()=>ctl.abort(), 3000);
-          const res = await fetch(`${base}/health`, { signal: ctl.signal, cache:'no-store' });
+          const t = setTimeout(()=>ctl.abort(), 5000);
+          const res = await fetch(`${base}/health`, { 
+            signal: ctl.signal, 
+            cache:'no-store',
+            mode: 'cors'
+          });
           clearTimeout(t);
           if (res.ok){ 
             workerBase = base; 
@@ -322,9 +327,9 @@
         }
       }
 
-      // Fallback
+      // Use the primary candidate as fallback since health checks might be failing due to CORS
       workerBase = 'https://vavlo-worker.bear-8c2.workers.dev';
-      console.log('⚠️ Using fallback worker base:', workerBase);
+      console.log('⚠️ Using fallback worker base (health checks failed):', workerBase);
       return workerBase;
     }
 
@@ -336,6 +341,7 @@
     const img = document.getElementById('img');
     const imageInner = document.getElementById('imageInner');
     const viewport = document.getElementById('viewport');
+    const canvasArea = document.querySelector('.canvas-area');
     const commentsEl = document.getElementById('comments');
     const filterSelect = document.getElementById('filterSelect');
     const zoomInBtn = document.getElementById('zoomIn');
@@ -394,13 +400,34 @@
       }
     }
 
-    // Zoom and fit
+    // Zoom and fit with proper scrollable content creation
     function applyScale(){
       imageInner.style.transform = `scale(${state.scale})`;
       imageInner.style.setProperty('--z', String(state.scale)); // keep markers/tooltips same visual size
       zoomResetBtn.textContent = Math.round(state.scale * 100) + '%';
-      if (state.imgNatural.h){
-        viewport.style.height = (state.imgNatural.h * state.scale) + 'px'; // prevent extra bottom gap
+      
+      if (state.imgNatural.h && state.imgNatural.w){
+        // Create scrollable content by making viewport larger than canvas-area
+        const scaledWidth = state.imgNatural.w * state.scale;
+        const scaledHeight = state.imgNatural.h * state.scale;
+        
+        // Ensure viewport is at least as large as the scaled image
+        const minWidth = Math.max(scaledWidth, canvasArea.clientWidth);
+        const minHeight = Math.max(scaledHeight, canvasArea.clientHeight);
+        
+        viewport.style.width = minWidth + 'px';
+        viewport.style.height = minHeight + 'px';
+        viewport.style.minWidth = scaledWidth + 'px';
+        viewport.style.minHeight = scaledHeight + 'px';
+        
+        console.log('Applied scale with scrollable content:', {
+          scale: state.scale,
+          natural: { w: state.imgNatural.w, h: state.imgNatural.h },
+          scaled: { w: scaledWidth, h: scaledHeight },
+          viewport: { w: minWidth, h: minHeight },
+          canvasArea: { w: canvasArea.clientWidth, h: canvasArea.clientHeight },
+          scrollable: { w: canvasArea.scrollWidth, h: canvasArea.scrollHeight }
+        });
       }
     }
     function fitToViewport(){
@@ -420,12 +447,16 @@
     function updatePanMode() {
       if (state.spacePressed && !stage.hidden) {
         viewport.classList.add('panning');
+        canvasArea.classList.add('panning');
         panIndicator.classList.add('active');
+        console.log('🎯 Pan mode enabled');
       } else {
         viewport.classList.remove('panning');
+        canvasArea.classList.remove('panning');
         panIndicator.classList.remove('active');
         state.panning = false;
-        viewport.classList.remove('pan-active');
+        canvasArea.classList.remove('pan-active');
+        console.log('🎯 Pan mode disabled');
       }
     }
 
@@ -439,7 +470,9 @@
           return;
         }
         
+        // Prevent ALL default spacebar behavior
         e.preventDefault();
+        e.stopPropagation();
         state.spacePressed = true;
         updatePanMode();
       }
@@ -447,10 +480,22 @@
 
     document.addEventListener('keyup', (e) => {
       if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
         state.spacePressed = false;
         updatePanMode();
       }
     });
+
+    // Prevent spacebar scrolling globally
+    window.addEventListener('keydown', (e) => {
+      if ((e.code === 'Space' || e.key === ' ') && 
+          e.target.tagName !== 'INPUT' && 
+          e.target.tagName !== 'TEXTAREA' && 
+          e.target.contentEditable !== 'true') {
+        e.preventDefault();
+      }
+    }, true);
 
     // Focus management to ensure spacebar works
     window.addEventListener('focus', () => {
@@ -458,34 +503,85 @@
       updatePanMode();
     });
 
-    viewport.addEventListener('mousedown', (e) => {
+    // Pan mode with improved event handling and debugging
+    canvasArea.addEventListener('mousedown', (e) => {
       if (state.spacePressed && !stage.hidden) {
         e.preventDefault();
+        e.stopPropagation();
         state.panning = true;
         state.panStart = { x: e.clientX, y: e.clientY };
         state.scrollStart = { 
-          x: viewport.parentElement.scrollLeft, 
-          y: viewport.parentElement.scrollTop 
+          x: canvasArea.scrollLeft, 
+          y: canvasArea.scrollTop 
         };
-        viewport.classList.add('pan-active');
+        canvasArea.classList.add('pan-active');
+        
+        console.log('Pan started:', { 
+          panStart: state.panStart, 
+          scrollStart: state.scrollStart,
+          canvasScrollable: { 
+            scrollWidth: canvasArea.scrollWidth, 
+            scrollHeight: canvasArea.scrollHeight,
+            clientWidth: canvasArea.clientWidth,
+            clientHeight: canvasArea.clientHeight,
+            scrollLeft: canvasArea.scrollLeft,
+            scrollTop: canvasArea.scrollTop
+          },
+          viewportSize: {
+            width: viewport.clientWidth,
+            height: viewport.clientHeight
+          }
+        });
+      }
+    });
+
+    // Use both mousemove events for better coverage
+    canvasArea.addEventListener('mousemove', (e) => {
+      if (state.panning && state.spacePressed) {
+        e.preventDefault();
+        e.stopPropagation();
+        const deltaX = state.panStart.x - e.clientX;
+        const deltaY = state.panStart.y - e.clientY;
+        
+        const newScrollLeft = state.scrollStart.x + deltaX;
+        const newScrollTop = state.scrollStart.y + deltaY;
+        
+        canvasArea.scrollLeft = newScrollLeft;
+        canvasArea.scrollTop = newScrollTop;
+        
+        console.log('Local pan event:', { 
+          delta: { x: deltaX, y: deltaY },
+          scroll: { left: canvasArea.scrollLeft, top: canvasArea.scrollTop }
+        });
       }
     });
 
     document.addEventListener('mousemove', (e) => {
       if (state.panning && state.spacePressed) {
         e.preventDefault();
+        e.stopPropagation();
         const deltaX = state.panStart.x - e.clientX;
         const deltaY = state.panStart.y - e.clientY;
         
-        viewport.parentElement.scrollLeft = state.scrollStart.x + deltaX;
-        viewport.parentElement.scrollTop = state.scrollStart.y + deltaY;
+        const newScrollLeft = state.scrollStart.x + deltaX;
+        const newScrollTop = state.scrollStart.y + deltaY;
+        
+        canvasArea.scrollLeft = newScrollLeft;
+        canvasArea.scrollTop = newScrollTop;
+        
+        console.log('Global pan event:', { 
+          delta: { x: deltaX, y: deltaY },
+          scroll: { left: canvasArea.scrollLeft, top: canvasArea.scrollTop }
+        });
       }
     });
 
-    document.addEventListener('mouseup', () => {
+    document.addEventListener('mouseup', (e) => {
       if (state.panning) {
+        e.preventDefault();
         state.panning = false;
-        viewport.classList.remove('pan-active');
+        canvasArea.classList.remove('pan-active');
+        console.log('Pan ended');
       }
     });
 
@@ -532,10 +628,14 @@
         state.createdAt = new Date().toISOString();
         state.expiresAt = new Date(Date.now() + 90*24*60*60*1000).toISOString();
         state.accessCount = 0;
+        console.log('Created new project:', state.projectId);
       }
-      const sharedDisplay = `${workerBase}/${state.projectId}`; // no .json in UI
-      const appUrl = `${location.origin}${location.pathname}?shared=${encodeURIComponent(sharedDisplay)}`;
-      if (shareInput){ shareInput.value = appUrl; }
+      // Clean share link format - just use the project ID
+      const appUrl = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+      if (shareInput){ 
+        shareInput.value = appUrl; 
+        console.log('🔗 Set share link to clean format:', appUrl);
+      }
       await saveProject();
     }
 
@@ -557,7 +657,16 @@
         imageInner.style.width = state.imgNatural.w + 'px'; imageInner.style.height = state.imgNatural.h + 'px';
         setVersions([vKey, ...state.versionOrder]);
         state.currentVersion = vKey;
-        stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport(); autoSave();
+        stage.hidden = false; dropzone.hidden = true; renderAll(); fitToViewport(); 
+        
+        // FORCE clean share link format here too
+        if (shareInput && state.projectId) {
+          const cleanUrl = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+          shareInput.value = cleanUrl;
+          console.log('Set clean share URL after image upload:', cleanUrl);
+        }
+        
+        autoSave();
       };
       imgLoad.src = url;
     }
@@ -818,17 +927,47 @@
       }
     }
 
-    // Share
+    // Share with debugging
     async function copyShareLink(){
       let link = shareInput && shareInput.value ? shareInput.value : '';
-      if (!link){ await ensureProjectIdAndLink(); link = shareInput.value; }
-      try{ await navigator.clipboard.writeText(link); alert('Share link copied'); }catch(e){ alert('Copy failed'); }
+      console.log('📋 Current share link value:', link);
+      
+      if (!link){ 
+        await ensureProjectIdAndLink(); 
+        link = shareInput.value; 
+        console.log('📋 Generated new share link:', link);
+      }
+      
+      // Double-check the format
+      if (link.includes('vavlo-worker') || link.includes('bear-8c2')) {
+        console.error('❌ Share link still contains worker URL! Fixing...');
+        const cleanLink = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+        shareInput.value = cleanLink;
+        link = cleanLink;
+        console.log('🔧 Fixed share link to:', link);
+      }
+      
+      try{ 
+        await navigator.clipboard.writeText(link); 
+        alert('Share link copied: ' + link); 
+      } catch(e) { 
+        alert('Copy failed'); 
+      }
     }
     copyBtn.addEventListener('click', copyShareLink);
 
-    // Save-load
+    // Save-load with better debugging
     async function saveProject(){
       try{
+        if (!state.projectId) {
+          console.error('❌ Cannot save: No project ID');
+          return;
+        }
+        if (!workerBase) {
+          console.error('❌ Cannot save: No worker base');
+          return;
+        }
+
         const payload = {
           projectId: state.projectId,
           createdAt: state.createdAt,
@@ -838,24 +977,82 @@
           currentVersion: state.currentVersion,
           versions: state.versions,
         };
-        if (!state.projectId || !workerBase) return;
-        console.log('Saving to:', `${workerBase}/${state.projectId}.json`);
-        const response = await fetch(`${workerBase}/${state.projectId}.json`, { 
-          method:'PUT', 
-          headers:{'content-type':'application/json'}, 
-          body: JSON.stringify(payload) 
-        });
-        if (!response.ok) {
-          console.error('Save failed with status:', response.status);
-        } else {
-          console.log('✅ Project saved successfully');
+        
+        const saveUrl = `${workerBase}/${state.projectId}.json`;
+        console.log('💾 Attempting to save...');
+        console.log('- Project ID:', state.projectId);
+        console.log('- Save URL:', saveUrl);
+        console.log('- Payload size:', JSON.stringify(payload).length, 'characters');
+        console.log('- Versions:', Object.keys(state.versions));
+        
+        try {
+          const response = await fetch(saveUrl, { 
+            method: 'PUT', 
+            headers: {
+              'content-type': 'application/json',
+              'access-control-allow-origin': '*'
+            }, 
+            body: JSON.stringify(payload),
+            mode: 'cors'
+          });
+          
+          if (!response.ok) {
+            console.error('❌ Save failed - HTTP status:', response.status, response.statusText);
+            const responseText = await response.text().catch(() => 'Unable to read response');
+            console.error('❌ Response body:', responseText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          } else {
+            console.log('✅ Project saved successfully to worker');
+            
+            // Also save to localStorage as backup
+            localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
+            console.log('💾 Also saved to localStorage as backup');
+            return;
+          }
+        } catch(fetchError) {
+          console.error('❌ Fetch error:', fetchError);
+          throw fetchError;
         }
-      }catch(err){ 
-        console.warn('Save failed', err); 
+        
+      } catch(err) { 
+        console.warn('❌ Primary save failed:', err.message);
+        
+        // Fallback: save to localStorage
+        try {
+          const payload = {
+            projectId: state.projectId,
+            createdAt: state.createdAt,
+            expiresAt: state.expiresAt,
+            accessCount: state.accessCount,
+            versionOrder: state.versionOrder,
+            currentVersion: state.currentVersion,
+            versions: state.versions,
+          };
+          localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
+          console.log('💾 Saved to localStorage as fallback');
+        } catch(localErr) {
+          console.error('❌ All save methods failed:', localErr);
+        }
       }
     }
-    let saveTimer = null; function autoSaveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 800); }
-    function autoSave(){ if (state.projectId) saveProject(); }
+    // Comprehensive share link fix - run this every time anything changes
+    function forceCleanShareLink() {
+      if (shareInput && state.projectId) {
+        const cleanUrl = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+        shareInput.value = cleanUrl;
+        console.log('FORCED clean share URL:', cleanUrl);
+        return cleanUrl;
+      }
+      return null;
+    }
+
+    // Run clean share link fix on all major events
+    function autoSave(){ 
+      if (state.projectId) {
+        forceCleanShareLink(); // Fix share link before saving
+        saveProject(); 
+      }
+    }
 
     // Robust shared loader with better debugging
     async function loadProjectFromShared(sharedVal){
@@ -1012,7 +1209,7 @@
       accessText.textContent = String(state.accessCount || 0);
     }
 
-    // Init
+    // Init with share link debugging
     (async function init(){
       await resolveWorkerBase();
 
@@ -1028,6 +1225,15 @@
       await ensureProjectIdAndLink();
       setVersions([]);
       updateExpiryUI();
+      
+      // Force clean share link on every page load
+      setTimeout(() => {
+        if (shareInput && state.projectId) {
+          const cleanUrl = `${location.origin}${location.pathname}?shared=${state.projectId}`;
+          shareInput.value = cleanUrl;
+          console.log('INIT: Forced clean share URL:', cleanUrl);
+        }
+      }, 100);
     })();
   </script>
 </body>
