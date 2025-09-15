@@ -193,10 +193,10 @@
 
     <div class="spacer"></div>
 
-    <!-- Share controls moved to topbar -->
+    <!-- Share controls updated for static file approach -->
     <div class="share-controls">
-      <input id="shareLink" type="text" readonly placeholder="Share link will appear here"/>
-      <button class="btn primary" id="copyShare" title="Copy share link">Copy</button>
+      <input id="shareLink" type="text" readonly placeholder="Generate HTML file for sharing"/>
+      <button class="btn primary" id="downloadHTML" title="Download standalone HTML file">Download HTML</button>
     </div>
 
     <!-- Project info -->
@@ -286,48 +286,113 @@
     function getSavedAuthor(){ try{ return localStorage.getItem(AUTHOR_KEY) || ''; }catch{ return ''; } }
     function setSavedAuthor(v){ try{ localStorage.setItem(AUTHOR_KEY, v || ''); }catch{} }
 
-    // JSONBin.io configuration (corrected endpoints)
-    const JSONBIN_CONFIG = {
-      createUrl: 'https://api.jsonbin.io/v3/b',
-      readUrl: 'https://api.jsonbin.io/v3/b',
-      // No API key needed for public bins
-    };
-
-    // Worker base detection - use JSONBin.io
-    let workerBase = null;
+    // Static file generation approach - much simpler and more reliable
+    let workerBase = 'static-files';
     async function resolveWorkerBase(){
-      console.log('Using JSONBin.io for persistence...');
-      
-      // Test JSONBin connection by trying to create a test bin
-      try {
-        const testPayload = { test: 'connection', timestamp: Date.now() };
-        const testResponse = await fetch(JSONBIN_CONFIG.createUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(testPayload)
-        });
+      console.log('Using static file generation for persistence...');
+      console.log('Projects will be saved as individual HTML files');
+      return 'static-files';
+    }
 
-        console.log('JSONBin test response status:', testResponse.status);
-        
-        if (testResponse.ok) {
-          workerBase = 'jsonbin';
-          console.log('✅ JSONBin.io service is working');
-          return workerBase;
-        } else {
-          const responseText = await testResponse.text().catch(() => 'Unable to read response');
-          console.log('❌ JSONBin.io test failed:', testResponse.status, responseText);
+    // Generate a complete standalone HTML file for the project
+    function generateProjectHTML(projectData) {
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Vavlo Project - ${projectData.projectId.substring(0, 8)}</title>
+  <style>
+    :root{
+      --bg:#0f1221; --panel:#171a2c; --panel-2:#1f2340; --line:#2b315a; --text:#e7e9ff; --muted:#a6abd3; --pink:#ff2b85; --gray:#6b7280;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; font:14px/1.35 system-ui; background:var(--bg); color:var(--text)}
+    .header{padding:20px; text-align:center; border-bottom:1px solid var(--line)}
+    .header h1{margin:0; color:var(--pink)}
+    .container{max-width:1400px; margin:0 auto; display:grid; grid-template-columns:1fr 400px; gap:20px; padding:20px}
+    .image-area{position:relative}
+    .image-area img{max-width:100%; height:auto; border-radius:8px}
+    .marker{position:absolute; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.35); transform:translate(-50%,-50%)}
+    .marker.unresolved{background:var(--pink)}
+    .marker.resolved{background:var(--gray)}
+    .comments{background:var(--panel); border-radius:12px; padding:20px; max-height:80vh; overflow-y:auto}
+    .comment{border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:12px; background:var(--panel-2)}
+    .comment.resolved{opacity:0.7}
+    .comment-header{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+    .badge{background:var(--pink); color:#fff; font-weight:800; padding:2px 8px; border-radius:999px; font-size:11px}
+    .badge.resolved{background:var(--gray)}
+    .meta{color:var(--muted); font-size:12px}
+    .comment-text{margin:8px 0}
+    .reply{border-left:3px solid var(--line); margin:8px 0 0 12px; padding-left:12px; font-size:13px}
+    .footer{text-align:center; padding:20px; color:var(--muted); font-size:12px}
+    
+    @media (max-width: 900px){
+      .container{grid-template-columns:1fr; gap:10px}
+      .comments{max-height:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Vavlo Project Review</h1>
+    <div class="meta">Created: ${new Date(projectData.createdAt).toLocaleDateString()} • Accessed: ${projectData.accessCount} times</div>
+  </div>
+  
+  <div class="container">
+    <div class="image-area">
+      <img src="${projectData.versions[projectData.currentVersion].imageSrc}" alt="Project Image" id="projectImage"/>
+      ${projectData.versions[projectData.currentVersion].comments.map(comment => `
+        <div class="marker ${comment.resolved ? 'resolved' : 'unresolved'}" 
+             style="left:${comment.xPct}%; top:${comment.yPct}%"
+             data-id="${comment.id}">${comment.id}</div>
+      `).join('')}
+    </div>
+    
+    <div class="comments">
+      <h3>Comments (${projectData.versions[projectData.currentVersion].comments.length})</h3>
+      ${projectData.versions[projectData.currentVersion].comments.map((comment, index) => `
+        <div class="comment ${comment.resolved ? 'resolved' : ''}" id="comment-${comment.id}">
+          <div class="comment-header">
+            <span class="badge ${comment.resolved ? 'resolved' : ''}">#${index + 1}</span>
+            <strong>${comment.author || 'Anonymous'}</strong>
+            <span class="meta">${new Date(comment.createdAt).toLocaleDateString()}</span>
+            <span class="meta">${comment.resolved ? 'Resolved' : 'Open'}</span>
+          </div>
+          <div class="comment-text">${comment.text}</div>
+          ${comment.replies.map(reply => `
+            <div class="reply">
+              <div class="meta"><strong>${reply.author || 'Anonymous'}</strong> • ${new Date(reply.createdAt).toLocaleDateString()}</div>
+              <div>${reply.text}</div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  
+  <div class="footer">
+    <div>Generated by Vavlo • <a href="https://vavlo.io" style="color:var(--pink)">Create your own project</a></div>
+  </div>
+  
+  <script>
+    // Add click handlers for markers
+    document.querySelectorAll('.marker').forEach(marker => {
+      marker.addEventListener('click', () => {
+        const commentId = marker.dataset.id;
+        const commentEl = document.getElementById('comment-' + commentId);
+        if (commentEl) {
+          commentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          commentEl.style.background = 'rgba(255, 43, 133, 0.1)';
+          setTimeout(() => {
+            commentEl.style.background = '';
+          }, 2000);
         }
-      } catch(err) {
-        console.log('❌ JSONBin.io error:', err.message);
-      }
-
-      // Fallback to localStorage only
-      workerBase = null;
-      console.log('⚠️ No backend available - using localStorage only');
-      alert('Warning: Online storage unavailable. Projects will only work locally and cannot be shared.');
-      return workerBase;
+      });
+    });
+  </script>
+</body>
+</html>`;
     }
 
     // Elements
@@ -349,7 +414,7 @@
     const expiresText = document.getElementById('expiresText');
     const accessText = document.getElementById('accessText');
     const shareInput = document.getElementById('shareLink');
-    const copyBtn = document.getElementById('copyShare');
+    const downloadBtn = document.getElementById('downloadHTML');
     const panIndicator = document.getElementById('panIndicator');
 
     // Versions
@@ -953,7 +1018,7 @@
     }
     copyBtn.addEventListener('click', copyShareLink);
 
-    // Save to JSONBin.io - simplified approach
+    // Save as downloadable HTML file - much simpler approach
     async function saveProject(){
       try{
         if (!state.projectId) {
@@ -972,85 +1037,25 @@
           updatedAt: new Date().toISOString()
         };
         
-        console.log('💾 Attempting to save to JSONBin.io...');
+        console.log('💾 Generating standalone HTML file...');
         console.log('- Project ID:', state.projectId);
-        console.log('- Payload size:', JSON.stringify(payload).length, 'characters');
         
-        try {
-          // Check if we already have a bin ID for this project
-          let binId = localStorage.getItem(`vavlo_bin_${state.projectId}`);
-          
-          if (binId) {
-            // Update existing bin
-            console.log('📝 Updating existing JSONBin:', binId);
-            const response = await fetch(`${JSONBIN_CONFIG.readUrl}/${binId}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
-            });
-            
-            console.log('JSONBin update response:', response.status);
-            
-            if (response.ok) {
-              console.log('✅ Project updated in JSONBin successfully');
-              workerBase = 'jsonbin'; // Mark as working
-            } else {
-              const errorText = await response.text().catch(() => 'Unable to read response');
-              console.error('❌ JSONBin update failed:', response.status, errorText);
-              throw new Error(`JSONBin update failed: ${response.status}`);
-            }
-            
-          } else {
-            // Create new bin
-            console.log('🆕 Creating new JSONBin...');
-            const response = await fetch(JSONBIN_CONFIG.createUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
-            });
-            
-            console.log('JSONBin create response:', response.status);
-            
-            if (response.ok) {
-              const result = await response.json();
-              console.log('JSONBin create result:', result);
-              
-              // Different APIs might return the ID in different places
-              binId = result.metadata?.id || result.id || result.record?.id;
-              
-              if (binId) {
-                // Store the bin ID so we can update it later
-                localStorage.setItem(`vavlo_bin_${state.projectId}`, binId);
-                console.log('✅ Project saved to JSONBin successfully');
-                console.log('- Bin ID:', binId);
-                workerBase = 'jsonbin'; // Mark as working
-              } else {
-                console.error('❌ No bin ID returned from JSONBin');
-                throw new Error('No bin ID returned from JSONBin');
-              }
-            } else {
-              const errorText = await response.text().catch(() => 'Unable to read response');
-              console.error('❌ JSONBin creation failed:', response.status, errorText);
-              throw new Error(`JSONBin creation failed: ${response.status}`);
-            }
-          }
-          
-          // Also save to localStorage as backup
-          localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
-          console.log('💾 Also saved to localStorage as backup');
-          return;
-          
-        } catch(jsonbinError) {
-          console.error('❌ JSONBin save error:', jsonbinError);
-          throw jsonbinError;
-        }
+        // Generate the complete HTML file
+        const htmlContent = generateProjectHTML(payload);
+        
+        // Save to localStorage as backup
+        localStorage.setItem(`vavlo_project_${state.projectId}`, JSON.stringify(payload));
+        console.log('💾 Saved to localStorage as backup');
+        
+        // Also store the HTML for download
+        localStorage.setItem(`vavlo_html_${state.projectId}`, htmlContent);
+        console.log('✅ Generated standalone HTML file successfully');
+        
+        // Update share functionality to offer file download
+        updateShareLinkForStaticFile();
         
       } catch(err) { 
-        console.warn('❌ Primary save failed:', err.message);
+        console.error('❌ HTML generation failed:', err);
         
         // Fallback: save to localStorage
         try {
@@ -1070,6 +1075,38 @@
           console.error('❌ All save methods failed:', localErr);
         }
       }
+    }
+
+    // Update share link to offer file download instead of API links
+    function updateShareLinkForStaticFile() {
+      if (shareInput && state.projectId) {
+        // For now, show instructions for static file sharing
+        const instructions = `Ready to share! Use "Download HTML" button to get a standalone file.`;
+        shareInput.value = instructions;
+        shareInput.style.fontSize = '12px';
+        console.log('🔗 Updated share instructions for static file approach');
+      }
+    }
+
+    // Add download functionality
+    function downloadProjectHTML() {
+      const htmlContent = localStorage.getItem(`vavlo_html_${state.projectId}`);
+      if (!htmlContent) {
+        alert('No project HTML available. Please save the project first.');
+        return;
+      }
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vavlo-project-${state.projectId.substring(0, 8)}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('📁 Downloaded project HTML file');
     }
     // Comprehensive share link fix - run this every time anything changes
     function forceCleanShareLink() {
