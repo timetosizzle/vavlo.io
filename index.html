@@ -193,10 +193,11 @@
 
     <div class="spacer"></div>
 
-    <!-- Share controls updated for static file approach -->
+    <!-- Share controls restored with both options -->
     <div class="share-controls">
-      <input id="shareLink" type="text" readonly placeholder="Generate HTML file for sharing"/>
-      <button class="btn primary" id="downloadHTML" title="Download standalone HTML file">Download HTML</button>
+      <input id="shareLink" type="text" readonly placeholder="Share link will appear here"/>
+      <button class="btn primary" id="copyShare" title="Copy share link">Copy</button>
+      <button class="btn" id="downloadHTML" title="Download backup HTML file">Download</button>
     </div>
 
     <!-- Project info -->
@@ -414,6 +415,7 @@
     const expiresText = document.getElementById('expiresText');
     const accessText = document.getElementById('accessText');
     const shareInput = document.getElementById('shareLink');
+    const copyBtn = document.getElementById('copyShare');
     const downloadBtn = document.getElementById('downloadHTML');
     const panIndicator = document.getElementById('panIndicator');
 
